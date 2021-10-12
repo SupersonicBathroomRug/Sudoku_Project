@@ -6,6 +6,8 @@
 
 # >>> MANAGING INPUT FROM TEXT/LISTS
 def init_tuples_from_text(s):
+    '''Given a text with 9 rows, each containing 9 characters, create a list of (row, col, value) tuples for the characters in the text
+    which are in {1,2,3,4,5,6,7,8,9}.'''
     nums=set(map(str,range(1,10)))
     ret=[]
     r=0
@@ -21,6 +23,7 @@ def init_tuples_from_text(s):
     return ret
 
 def gridtext_to_arraytext(s):
+    '''Given a text with 9 rows, each containing 9 digits, create a repr of a list of lists containing these numbers.'''
     n="[["
     for char in s:
         if char=='\n':
@@ -31,6 +34,7 @@ def gridtext_to_arraytext(s):
         
 # >>> OUTPUT   
 def print_board(board):
+    '''Print the 9×9 board, with spaces in cells containing 0.'''
     for i in range(9):
         if i%3==0 and i!=0:
             print("─────────┼─────────┼─────────")

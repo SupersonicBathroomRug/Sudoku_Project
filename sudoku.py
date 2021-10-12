@@ -2,7 +2,7 @@
 #       SUDOKU MANAGEMENT & SOLVING
 # ==========================================
 from boardio import *
-import copy
+from itertools import product
 import numpy as np
 
 board=[[0 for _ in range(9)] for _ in range(9)] # the board containing the filled in values and 0 in the empty cells
@@ -73,7 +73,7 @@ def init_board(given):
         assign_cell(row,col,val)
 
 # >>> SOLVERS
-def check_unicity(board_to_solve):
+def check_unicity(board_to_solve, verbose=False):
     '''Attempts to decide whether this sudoku has a unique solution with a DFS search.
     Returns (True, [unique_solution]), if the solution is unique,
             [solution_no1, solution_no2] if there are at least two solutions.'''
@@ -90,13 +90,10 @@ def check_unicity(board_to_solve):
         Returns True if at least 2 solutions have been found during the search, and False before that.'''
         if row==9: # if we filled the entire grid, save this as a solution, and possibly terminate the search.
             sols.append(b.copy())
-            print(b)
+            if verbose: print(b)
             return len(sols)>1
-        if b[row][col]!=0:
-            if dfs(*nextcell(row,col)): # TODO: return dfs(...) would be enough
-                return True
-            else:
-                return False
+        if b[row][col]!=0: # if cell is already filled, skip to the next one
+            return dfs(*nextcell(row,col))
             
         # Decide which numbers can be written in this cell without causing a conflict with previously filled cells:
         possible=[True for i in range(9)]
@@ -108,8 +105,8 @@ def check_unicity(board_to_solve):
                 possible[b[i][col]-1]=False
         # discard numbers present in this section:
         sec=cell_section(row,col)
-        for i,j in [(i,j) for i in range(3) for j in range(3)]:
-            tmp=b[sec//3*3+i][sec%3*3+j] # TODO: tmp = b[local_to_global(sec,i,j)] would be nicer
+        for i,j in product(range(3), range(3)):
+            tmp=b[local_to_global(sec, i, j)]
             if tmp!=0:
                 possible[tmp-1]=False
         # fill this cell in all ways possible, and continue recursively to the next cell:       
@@ -141,38 +138,35 @@ def solve(): # TODO: make this more interactive AND/OR make this terminate more 
     '80':       print the numbers which can be written in row 8 column 0'''
     while True:
         # RULE: only 1 value can be written to this cell, as all others are present in this row+column+section
-        for i in range(9):
-            for j in range(9):
-                if board[i][j]!=0:
-                    continue
-                tmp=rows[i]&cols[j]&sections[cell_section(i,j)] # which numbers are not present in this row+column+section?
-                if len(tmp)==0: # if nothing is allowed in this empty cell: CONTRADICTION!
-                    print(f"cannot fill cell {i},{j}")
-                    return
-                if len(tmp)==1: # if only a single value is allowed: FILL!
-                    ass=list(tmp)[0]
-                    assign_cell(i,j,ass)
+        for i, j in product(range(9), range(9)):
+            if board[i][j]!=0:
+                continue
+            tmp=rows[i]&cols[j]&sections[cell_section(i,j)] # which numbers are not present in this row+column+section?
+            if len(tmp)==0: # if nothing is allowed in this empty cell: CONTRADICTION!
+                print(f"cannot fill cell {i},{j}")
+                return
+            if len(tmp)==1: # if only a single value is allowed: FILL!
+                ass=list(tmp)[0]
+                assign_cell(i,j,ass)
         # RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
-        for i in range(9):
-            for j in range(9):
-                if len(rowpos[i][j])==1:
-                    assign_cell(i,list(rowpos[i][j])[0],j+1)
-                if len(colpos[i][j])==1:
-                    assign_cell(list(colpos[i][j])[0],i,j+1)
-                if len(squarepos[i][j])==1:
-                    assign_cell(*local_to_global(i,*list(squarepos[i][j])[0]),j+1)
+        for i, j in product(range(9), range(9)):
+            if len(rowpos[i][j])==1:
+                assign_cell(i,list(rowpos[i][j])[0],j+1)
+            if len(colpos[i][j])==1:
+                assign_cell(list(colpos[i][j])[0],i,j+1)
+            if len(squarepos[i][j])==1:
+                assign_cell(*local_to_global(i,*list(squarepos[i][j])[0]),j+1)
         k=input()
         print_board(board)
         if k=="": # Deduce once
             continue
         if k=="q": # Exit loop
-            break # TODO: use return instead
+            return
         if k=="fuck": # Print possible values for each empty cell
-            for row in range(9):
-                for col in range(9):
-                    if board[row][col]!=0:
-                        continue
-                    print(f"{row},{col}: {rows[row]&cols[col]&sections[cell_section(row,col)]}")
+            for row, col in product(range(9), range(9)):
+                if board[row][col]!=0:
+                    continue
+                print(f"{row},{col}: {rows[row]&cols[col]&sections[cell_section(row,col)]}")
         else: # For an input consisting of two digits 0-8, print the possible values for the cell determined by it 
             row=int(k[0])
             col=int(k[1])

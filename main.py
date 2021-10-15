@@ -31,8 +31,50 @@ def example1():
         (6,0,1), (6,3,2), (6,5,7),
         (7,0,8), (7,1,6), (7,4,9), (7,8,2)
     ]
-    init_board(filled)
-    solve() # this will actually solve the sudoku now, as this is a stronger solver
+    sud = Sudoku(tuples=filled)
+    sud.interactive_solve() # this will actually solve the sudoku now, as this is a stronger solver
+
+# >>> EXAMPLE 2
+# ┌─────────┬─────────┬─────────┐
+# │         │ 8     1 │         │
+# │         │         │    4  3 │
+# │ 5       │         │         │
+# ├─────────┼─────────┼─────────┤
+# │         │    7    │ 8       │
+# │         │         │ 1       │
+# │    2    │    3    │         │
+# ├─────────┼─────────┼─────────┤
+# │ 6       │         │    7  5 │
+# │       3 │ 4       │         │
+# │         │ 2       │ 6       │
+# └─────────┴─────────┴─────────┘
+# This puzzle has a unique solution, with the minimal number of clues (17) given. No deductions are possible with the first two
+# rules, however. Furthermore, checking whether the solution is unique takes too much time now.
+def example2():
+    s ='''000801000
+        000000043
+        500000000
+        000070800
+        000000100
+        020030000
+        600000075
+        003400000
+        000200600'''
+    b = [[0, 0, 0, 8, 0, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 4, 3],
+        [5, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 7, 0, 8, 0, 0],
+        [0, 0, 0, 0, 0, 0, 1, 0, 0],
+        [0, 2, 0, 0, 3, 0, 0, 0, 0],
+        [6, 0, 0, 0, 0, 0, 0, 7, 5],
+        [0, 0, 3, 4, 0, 0, 0, 0, 0],
+        [0, 0, 0, 2, 0, 0, 6, 0, 0]]
+    sud = Sudoku(board=b)
+    #print(check_unicity(b, verbose=True))
+    print("[SOLVING]")
+    sud.interactive_solve()
+    
+    
 
 if __name__ == "__main__":
-    example1()
+    example2()

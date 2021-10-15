@@ -24,4 +24,4 @@ def _find_getch():
 
     return _getch
 
-getch = _find_getch()
+getch = _find_getch() # reads a single character into a bytes object

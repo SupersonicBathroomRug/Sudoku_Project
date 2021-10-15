@@ -4,15 +4,171 @@
 from boardio import *
 from itertools import product
 import numpy as np
+import copy
 
-board=[[0 for _ in range(9)] for _ in range(9)] # the board containing the filled in values and 0 in the empty cells
-rows=[{i for i in range(1,10)} for j in range(9)] # values missing from the row
-cols=[{i for i in range(1,10)} for j in range(9)] # values missing from the column
-sections=[{i for i in range(1,10)} for j in range(9)] # values missing from the 3×3 sections
+class Sudoku:
+    '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
 
-rowpos=[[set(range(9)) for i in range(9)] for j in range(9)] # j. sorban az i hova mehet meg
-colpos=[[set(range(9)) for i in range(9)] for j in range(9)] # j. oszlopban az i hova mehet meg
-squarepos=[[set([(i,j) for i in range(3) for j in range(3)]) for _ in range(9)] for _ in range(9)] # az adott sectionben az adott szám hova mehet
+    def __init__(self, board=None, tuples=None):
+        '''Initialize a sudoku either with:
+        board: list of lists
+            A matrix representation of the sudoku table, with 0s in empty cells.
+        tuples: Iterable of (row, column, value) tuples
+            An Iterable containing an entry for each filled cell of the board.'''
+        if tuples is not None:
+            pass
+        elif board is not None:
+            tuples = init_tuples_from_array(board)
+        else:
+            raise ValueError("'board' or 'tuples' must be given in the contructor.")
+        
+        self.board=[[0 for _ in range(9)] for _ in range(9)] # the board containing the filled in values and 0 in the empty cells
+        self.allowed=[[set(range(1,10)) for _ in range(9)] for _ in range(9)] # values which can be still written here
+
+        self.rowpos=[[set(range(9)) for _ in range(9)] for _ in range(9)] # j. sorban az i hova mehet meg
+        self.colpos=[[set(range(9)) for _ in range(9)] for _ in range(9)] # j. oszlopban az i hova mehet meg
+        self.secpos=[[set([(i,j) for i in range(3) for j in range(3)]) for _ in range(9)] for _ in range(9)] # az adott sectionben az adott szám hova mehet
+        
+        self.missing = 9*9
+        for row, col, val in tuples:
+            self[row, col] = val
+    
+    def __setitem__(self, key, val):
+        '''Fill in the given cell with the given value.
+        Take note of the new restricions this causes, and stop tracking this value & position further.'''
+        if val == 0:
+            raise NotImplementedError("Cannot assign 0 to any cell!")
+        self.missing -= 1
+        row = key[0]
+        col = key[1]
+        self.board[row][col]=val
+        # stop tracking this value
+        self.rowpos[row][val-1] = set()
+        self.colpos[col][val-1] = set()
+        self.secpos[cell_section(row,col)][val-1] = set()
+        # no more values can be written this position...
+        self.allowed[row][col] = set()
+        for i in range(9): # ...in this 3×3 section
+            self.secpos[cell_section(row,col)][i].discard(global_to_local(row,col))
+        for i in range(9): # ...in this row and column
+            self.rowpos[row][i].discard(col)
+            self.colpos[col][i].discard(row)
+
+        # this value can't be written anymore...
+        #   ...in this row, column and section:
+        for i in range(9):
+            self.allowed[i][col].discard(val)
+            self.allowed[row][i].discard(val)
+            p = local_to_global(cell_section(row, col),i//3,i%3)
+            self.allowed[p[0]][p[1]].discard(val)
+        #   ...in certain positions in other rows/columns:
+        for i in range(9):
+            self.rowpos[i][val-1].discard(col)
+            self.colpos[i][val-1].discard(row)
+        #   ...in certain positions in other secs:
+        for i in range(9):
+            self.secpos[cell_section(i,col)][val-1].discard(global_to_local(i,col))
+        for i in range(9):
+            self.secpos[cell_section(row,i)][val-1].discard(global_to_local(row,i))
+
+    def __getitem__(self, key):
+        return self.board[key[0]][key[1]]
+    
+    def solve(self): # TODO: make this more interactive AND/OR make this terminate more nicely
+        '''Attempts to solve this sudoku only using a fixed set of deductions. This set currently is:
+        - only 1 value can be written to (i,j), as all others are present in this row+column+section
+        - v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them'''
+        last_missing = self.missing+1
+        while last_missing != self.missing:
+            last_missing = self.missing
+            # RULE: only 1 value can be written to this cell, as all others are present in this row+column+section
+            for i, j in product(range(9), range(9)):
+                if self.board[i][j]!=0:
+                    continue
+                tmp = self.allowed[i][j] # which numbers are not present in this row+column+section?
+                if len(tmp)==0: # if nothing is allowed in this empty cell: CONTRADICTION!
+                    print(f"cannot fill cell {i},{j}")
+                    return
+                if len(tmp)==1: # if only a single value is allowed: FILL!
+                    ass = list(tmp)[0]
+                    self[i,j] = ass
+            # RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
+            for i, j in product(range(9), range(9)):
+                if len(self.rowpos[i][j])==1:
+                    self[i, list(self.rowpos[i][j])[0]] = j+1
+                if len(self.colpos[i][j])==1:
+                    self[list(self.colpos[i][j])[0], i] = j+1
+                if len(self.secpos[i][j])==1:
+                    self[local_to_global(i,*list(self.secpos[i][j])[0])] = j+1
+        return self.missing == 0
+
+    def interactive_solve(self):
+        '''Interactive solver tool. Type 'h' or 'help' for help.'''
+        print_board(self.board)
+        while True:
+            # INTERACTIVE PART
+            k = input()
+            if k == "": # Attempt solve
+                if self.solve():
+                    print("          =========================   SUDOKU COMPLETE   =========================          ")
+                    print_board(self.board)
+                    return
+                else:
+                    self.print_status()
+            elif k == "print" or k == "p": # Print
+                self.print_status()
+            elif k == "quit" or k == "q" or k == "exit": # Exit loop
+                return
+            elif k.startswith("set "):
+                m = re.match(r'set\s+(\d)[^\d]*(\d)[^\d]*(\d)\s*', k)
+                if m is None:
+                    print("ERROR: could not parse input. Please use 'set {row} {col} {value}'")
+                    continue
+                r = int(m.group(1))
+                c = int(m.group(2))
+                v = int(m.group(3))
+                if self.board[r][c] != 0:
+                    print(f"ERROR: ({r}, {c}) is already filled with {self.board[r][c]}")
+                    continue
+                if v not in self.allowed[r][c]:
+                    print(f"ERROR: {v} is not allowed at ({r}, {c}); allowed numbers: {self.allowed[r][c]}")
+                    continue  
+                self[r,c] = v
+                print(f"({r}, {c}) has been set to {v}.")
+            elif k.startswith("ban "):
+                k = re.sub(r'[^\d:]+','',k)
+                halves = k.split(':')
+                if len(halves) != 2 or len(halves[0])%2!=0:
+                    print("ERROR: could not parse input. Please use 'ban {cell1_row} {cell1_col} {cell2_row} {cell2_col}[...]: {value1} {value2}[...]'")
+                    continue
+                cells = [(int(halves[0][2*i]),int(halves[0][2*i+1])) for i in range(len(halves[0])//2)]
+                to_ban = {int(d) for d in halves[1]}
+                for r, c in cells:
+                    self.allowed[r][c] -= to_ban
+                print(f"{to_ban} banned from the following cells: {cells}")
+            elif k == "h" or k == "help":
+                print("Commands:")
+                print("   print:")
+                print("      Print current state of the sudoku.")
+                print("   quit, q, exit:")
+                print("      Exit the solver.")
+                print("   set {row} {column} {value}:")
+                print("      Set the value of the specified cell. Indexing of rows/cols starts from 0.")
+                print("   ban [{cell_i_row} {cell_i_col} pairs]: [{value} banned values]")
+                print("      Ban these values from these cells. Row/col indexing starts from 0.")
+                print("   help or h:")
+                print("      Print this help.")
+                print("   []:")
+                print("      The empty command attempts a solve from the current state.")
+                
+    # >>> UTILITY
+    def is_unique(self):
+        '''Checks whether this sudoku has a unique solution. See check_unicity().'''
+        return check_unicity(self.board, False)
+    
+    def print_status(self):
+        '''Prints a detailed representation of the current state of the puzzle. Each cell contains which numbers can be written there.'''
+        print_detailed_board(self.board, [[self.allowed[r][c] for c in range(9)] for r in range(9)])
 
 # >>> HELPERS
 def cell_section(i,j):
@@ -26,51 +182,6 @@ def local_to_global(sec,i,j):
 def global_to_local(i,j):
     '''coordinates of a cell given in the 9×9 grid, inside its 3×3 section'''
     return (i%3,j%3)
-
-# >>> MANAGE BOARD WITH SOLVING IN MIND
-def assign_cell(row,col,val):
-    '''Fill in the given cell with the given value.
-    Take note of the new restricions this causes, and stop tracking this value & position further.'''
-    board[row][col]=val
-    # stop tracking this value
-    rowpos[row][val-1]=set()
-    colpos[col][val-1]=set()
-    squarepos[cell_section(row,col)][val-1]=set()
-    # no more values can be written this position...
-    for i in range(9): # ...in this 3×3 section
-        squarepos[cell_section(row,col)][i].discard(global_to_local(row,col))
-    for i in range(9): # ...in this row and column
-        rowpos[row][i].discard(col)
-        colpos[col][i].discard(row)
-
-    # this value can't be written anymore...
-    #   ...in this row, column and section:
-    rows[row].discard(val)
-    cols[col].discard(val)
-    sections[cell_section(row,col)].discard(val)
-    #   ...in certain positions in other rows/columns:
-    for i in range(9):
-        rowpos[i][val-1].discard(col)
-        colpos[i][val-1].discard(row)
-    #   ...in certain positions in other sections:
-    for i in range(9):
-        squarepos[cell_section(i,col)][val-1].discard(global_to_local(i,col))
-    for i in range(9):
-        squarepos[cell_section(row,i)][val-1].discard(global_to_local(row,i))
-
-def init_board(given):
-    '''Initializes the board with some values given with their coordinates,
-    given: list of tuples (row,col,val)'''
-    global board
-    board=[[0 for _ in range(9)] for _ in range(9)]
-    global rows
-    rows=[{i for i in range(1,10)} for j in range(9)]
-    global cols
-    cols=[{i for i in range(1,10)} for j in range(9)]
-    global sections
-    sections=[{i for i in range(1,10)} for j in range(9)]
-    for row,col,val in given:
-        assign_cell(row,col,val)
 
 # >>> SOLVERS
 def check_unicity(board_to_solve, verbose=False):
@@ -124,58 +235,20 @@ def check_unicity(board_to_solve, verbose=False):
     else:
         return sols    
 
-def solve(): # TODO: make this more interactive AND/OR make this terminate more nicely
-    '''Attempts to solve this sudoku only using a fixed set of deductions. This set currently is:
-    - only 1 value can be written to (i,j), as all others are present in this row+column+section
-    - v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
-    Press ENTER to try and use all of these deductions for all cells in some order. This means MANY (or even zero) deductions may
-    happen, and a deduction may use information from  previous one made in this turn.
-    The program will print a message if it finds the sudoku contradictory.
-    Controls:
-    '':         make deductions
-    'q':        quit the solver
-    'fuck':     print the numbers which can be written in each empty cell
-    '80':       print the numbers which can be written in row 8 column 0'''
-    while True:
-        # RULE: only 1 value can be written to this cell, as all others are present in this row+column+section
-        for i, j in product(range(9), range(9)):
-            if board[i][j]!=0:
-                continue
-            tmp=rows[i]&cols[j]&sections[cell_section(i,j)] # which numbers are not present in this row+column+section?
-            if len(tmp)==0: # if nothing is allowed in this empty cell: CONTRADICTION!
-                print(f"cannot fill cell {i},{j}")
-                return
-            if len(tmp)==1: # if only a single value is allowed: FILL!
-                ass=list(tmp)[0]
-                assign_cell(i,j,ass)
-        # RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
-        for i, j in product(range(9), range(9)):
-            if len(rowpos[i][j])==1:
-                assign_cell(i,list(rowpos[i][j])[0],j+1)
-            if len(colpos[i][j])==1:
-                assign_cell(list(colpos[i][j])[0],i,j+1)
-            if len(squarepos[i][j])==1:
-                assign_cell(*local_to_global(i,*list(squarepos[i][j])[0]),j+1)
-        k=input()
-        print_board(board)
-        if k=="": # Deduce once
-            continue
-        if k=="q": # Exit loop
-            return
-        if k=="fuck": # Print possible values for each empty cell
-            for row, col in product(range(9), range(9)):
-                if board[row][col]!=0:
-                    continue
-                print(f"{row},{col}: {rows[row]&cols[col]&sections[cell_section(row,col)]}")
-        else: # For an input consisting of two digits 0-8, print the possible values for the cell determined by it 
-            row=int(k[0])
-            col=int(k[1])
-            print(rows[row]&cols[col]&sections[cell_section(row,col)])
-
 if __name__ == "__main__":
+    sud = Sudoku(board=[[0, 0, 8, 0, 0, 0, 6, 0, 3], 
+        [0, 2, 0, 0, 0, 9, 0, 0, 0], 
+        [0, 0, 0, 8, 0, 0, 4, 5, 0], 
+        [8, 5, 6, 0, 7, 0, 0, 0, 0], 
+        [0, 0, 4, 0, 0, 0, 5, 0, 0], 
+        [0, 0, 0, 0, 6, 0, 8, 9, 7], 
+        [0, 8, 7, 0, 0, 6, 0, 0, 0], 
+        [0, 0, 0, 3, 0, 0, 0, 8, 0], 
+        [2, 0, 3, 0, 0, 0, 1, 0, 0]])
+    sud.interactive_solve()
     # solve test
     print("--- Testing solve()")
-    init_board(init_tuples_from_text('''
+    sud = Sudoku(tuples=init_tuples_from_text('''
 1....847.
 5........
 .4...1.3.
@@ -186,7 +259,7 @@ if __name__ == "__main__":
 ...8.5.2.
 .6.437...
 '''[1:]))
-    solve()
+    sud.solve()
 
     # unicity test 1
     print("--- Testing check_unicity() #1")

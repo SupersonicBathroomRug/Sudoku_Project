@@ -38,11 +38,11 @@ def gridtext_to_arraytext(s):
     return '['+',\n '.join(('['+', '.join(c for c in row)+']') for row in s.split())+']'
 
 # >>> ADVANCED
-def edit_sudoku():
+def edit_sudoku(board=None):
     '''Edit a sudoku board. Navigate the cells with wasd, delete with 0 or x, fill a cell by typing the desired number.
     Quit with 'q', get this help with 'h'.'''
     from Getch import getch
-    board = [[0 for _ in range(9)] for _ in range(9)]
+    if board is None: board = [[0 for _ in range(9)] for _ in range(9)]
     selected = [4, 4]
     nums = set(map(str,range(10)))
     while(True):

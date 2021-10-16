@@ -5,9 +5,16 @@ from boardio import *
 from itertools import product
 import numpy as np
 import copy
+from sys import argv
+from getopt import getopt
 
 class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
+    rule_to_string = {
+        "allowed": "only this number can be written here.",
+        "rowpos":  "this number can only go here in its row.",
+        "colpos":  "this number can only go here in its column.",
+        "secpos":  "this number can only go here in its 3x3 square."}
 
     def __init__(self, board=None, tuples=None):
         '''Initialize a sudoku either with:
@@ -30,6 +37,7 @@ class Sudoku:
         self.secpos=[[set([(i,j) for i in range(3) for j in range(3)]) for _ in range(9)] for _ in range(9)] # az adott sectionben az adott szám hova mehet
         
         self.missing = 9*9
+        self.proof = []
         for row, col, val in tuples:
             self[row, col] = val
     
@@ -91,29 +99,35 @@ class Sudoku:
                     return
                 if len(tmp)==1: # if only a single value is allowed: FILL!
                     ass = list(tmp)[0]
+                    self.proof.append({"row": i, "col": j, "val": ass, "rule": "allowed"})
                     self[i,j] = ass
             # RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
             for i, j in product(range(9), range(9)):
                 if len(self.rowpos[i][j])==1:
+                    self.proof.append({"row": i, "col": list(self.rowpos[i][j])[0], "val": j+1, "rule": "rowpos"})
                     self[i, list(self.rowpos[i][j])[0]] = j+1
                 if len(self.colpos[i][j])==1:
+                    self.proof.append({"row": list(self.colpos[i][j])[0], "col": i, "val": j+1, "rule": "colpos"})
                     self[list(self.colpos[i][j])[0], i] = j+1
                 if len(self.secpos[i][j])==1:
-                    self[local_to_global(i,*list(self.secpos[i][j])[0])] = j+1
+                    p = local_to_global(i,*list(self.secpos[i][j])[0])
+                    self.proof.append({"row": p[0], "col": p[1], "val": j+1, "rule": "secpos"})
+                    self[p] = j+1
         return self.missing == 0
 
     def interactive_solve(self):
         '''Interactive solver tool. Type 'h' or 'help' for help.'''
+        print("   INTERACTIVE SOLVER STARTED  ")
         print_board(self.board)
         while True:
             # INTERACTIVE PART
-            k = input()
+            k = input("> ")
             if k == "": # Attempt solve
                 if self.solve():
                     print("          =========================   SUDOKU COMPLETE   =========================          ")
                     print_board(self.board)
-                    return
                 else:
+                    print("Solver got stuck at this state:")
                     self.print_status()
             elif k == "print" or k == "p": # Print
                 self.print_status()
@@ -145,7 +159,43 @@ class Sudoku:
                 to_ban = {int(d) for d in halves[1]}
                 for r, c in cells:
                     self.allowed[r][c] -= to_ban
+                    for val in to_ban:
+                        self.rowpos[r][val-1].discard(c)
+                        self.colpos[c][val-1].discard(r)
+                        self.secpos[cell_section(r, c)][val-1].discard(global_to_local(r, c))
                 print(f"{to_ban} banned from the following cells: {cells}")
+            elif k == 'u' or k == 'unique':
+                print("Checking unicity of the puzzle. Please wait.")
+                u, sols = self.is_unique()
+                if u:
+                    print("[UNIQUE] This puzzle has a unique solution. It is the following:")
+                    print_board(sols[0])
+                else:
+                    print("[NOT UNIQUE] This puzzle has multiple solutions. Two of these are:")
+                    print_board(sols[0])
+                    print_board(sols[1])
+            elif k.startswith("proof"):
+                # Get name of the output file; optional
+                file = re.search(r"""\s-?-?file=(?P<quote>['"])(?P<path>.*?)(?P=quote)""", k) 
+                if file != None:
+                    file = file.group("path")
+                    print(f"Printing output to {file}.")
+                # Simplify k:
+                k = re.sub(r'\sfile="(.*?)"','',k)
+                k = re.sub(r'[^\d:]+','',k)
+                if k == '':
+                    k = ':'
+                # Process k into proper slice indicies:
+                halves = k.split(':')
+                if len(halves) != 2:
+                    print("ERROR: could not parse input. Please use 'proof {first_idx}:{last_idx}'")
+                    continue
+                start = int(halves[0]) if halves[0] != '' else 0
+                end = int(halves[1]) if halves[1] != '' else len(self.proof)
+                if end > len(self.proof):
+                    print(f"WARNING: specified range too large; proof only has {len(self.proof)} steps so far.")
+                # Execute printing:
+                self.print_proof(file=file, start=start, end=min(end, len(self.proof)))
             elif k == "h" or k == "help":
                 print("Commands:")
                 print("   print:")
@@ -156,6 +206,12 @@ class Sudoku:
                 print("      Set the value of the specified cell. Indexing of rows/cols starts from 0.")
                 print("   ban [{cell_i_row} {cell_i_col} pairs]: [{value} banned values]")
                 print("      Ban these values from these cells. Row/col indexing starts from 0.")
+                print("   unique or u:")
+                print("      Checks whether this puzzle is unique, and prints the solution if so, or two of the solutions if not.")
+                print("   proof [file=\"{file_path}\", optional] {first_line}:{last_line}")
+                print("      Prints the steps of the proof from the first specified line to the one before the last.")
+                print("      The ':' is a python slice notation: either side can be omitted. Output will be written on the console,")
+                print("      if no filepath is specified.")
                 print("   help or h:")
                 print("      Print this help.")
                 print("   []:")
@@ -169,6 +225,22 @@ class Sudoku:
     def print_status(self):
         '''Prints a detailed representation of the current state of the puzzle. Each cell contains which numbers can be written there.'''
         print_detailed_board(self.board, [[self.allowed[r][c] for c in range(9)] for r in range(9)])
+    
+    def proof_to_string(self, idx):
+        '''Converts the data of the ith proof step to a string.'''
+        return f"[#{idx}] "+"({row}, {col}) is {val}, because ".format(**self.proof[idx])+Sudoku.rule_to_string[self.proof[idx]["rule"]]
+    
+    def print_proof(self, file=None, start=0, end=None):
+        '''Prints proof steps from #start to #end (default: 0 and last) to the specified file, or the console if file is None.'''
+        if end is None: end = len(self.proof)
+        if file is None:
+            for i in range(start, end):
+                print(self.proof_to_string(i))
+        else:
+            with open(file, 'w') as f:
+                for i in range(start, end):
+                    f.write(self.proof_to_string(i)+'\n')
+        
 
 # >>> HELPERS
 def cell_section(i,j):
@@ -230,61 +302,83 @@ def check_unicity(board_to_solve, verbose=False):
         return False
         
     dfs(0,0)
-    if len(sols)==1:
-        return (True,sols)
-    else:
-        return sols    
+    return (len(sols) == 1), sols 
 
 if __name__ == "__main__":
-    sud = Sudoku(board=[[0, 0, 8, 0, 0, 0, 6, 0, 3], 
-        [0, 2, 0, 0, 0, 9, 0, 0, 0], 
-        [0, 0, 0, 8, 0, 0, 4, 5, 0], 
-        [8, 5, 6, 0, 7, 0, 0, 0, 0], 
-        [0, 0, 4, 0, 0, 0, 5, 0, 0], 
-        [0, 0, 0, 0, 6, 0, 8, 9, 7], 
-        [0, 8, 7, 0, 0, 6, 0, 0, 0], 
-        [0, 0, 0, 3, 0, 0, 0, 8, 0], 
-        [2, 0, 3, 0, 0, 0, 1, 0, 0]])
-    sud.interactive_solve()
-    # solve test
-    print("--- Testing solve()")
-    sud = Sudoku(tuples=init_tuples_from_text('''
-1....847.
-5........
-.4...1.3.
-...2.....
-...3.46..
-..81.....
-....6...5
-...8.5.2.
-.6.437...
-'''[1:]))
-    sud.solve()
+    _opts, args = getopt(argv[1:],"hepl:",["link=","editor","passive"])
+    opts = dict(_opts)
+    listoflists = None
+    if '-h' in opts:
+        print("python sudoku.py {--link <link>} {--editor}")
+    for opt, arg in opts.items():
+        if opt == '-l' or opt == "--link":
+            try:
+                listoflists = fetch_puzzle(arg)
+            except ValueError as e:
+                print(f"ERROR: {str(e)}")
+                print("Initializing empty board...")
+                listoflists = [[0 for _ in range(9)] for _ in range(9)]
+    for opt, arg in opts.items():
+        if opt == '-e' or opt == '--editor':
+            print("Starting sudoku editor. Press 'h' for help. Press 'q' to start the solving process.")
+            listoflists = edit_sudoku(listoflists)
+    if listoflists != None:
+        su = Sudoku(board=listoflists)
+        if ('-p' in opts) or ("--passive" in opts):
+            su.solve()
+            print_board(su.board)
+        else:
+            su.interactive_solve()
+    else:
+        sud = Sudoku(board=[[0, 0, 8, 0, 0, 0, 6, 0, 3], 
+            [0, 2, 0, 0, 0, 9, 0, 0, 0], 
+            [0, 0, 0, 8, 0, 0, 4, 5, 0], 
+            [8, 5, 6, 0, 7, 0, 0, 0, 0], 
+            [0, 0, 4, 0, 0, 0, 5, 0, 0], 
+            [0, 0, 0, 0, 6, 0, 8, 9, 7], 
+            [0, 8, 7, 0, 0, 6, 0, 0, 0], 
+            [0, 0, 0, 3, 0, 0, 0, 8, 0], 
+            [2, 0, 3, 0, 0, 0, 1, 0, 0]])
+        sud.interactive_solve()
+        # solve test
+        print("--- Testing solve()")
+        sud = Sudoku(tuples=init_tuples_from_text('''
+        1....847.
+        5........
+        .4...1.3.
+        ...2.....
+        ...3.46..
+        ..81.....
+        ....6...5
+        ...8.5.2.
+        .6.437...
+        '''[1:]))
+        sud.solve()
 
-    # unicity test 1
-    print("--- Testing check_unicity() #1")
-    ret = check_unicity([
-        [0,0,0,0,0,0,1,9,0],
-        [2,3,0,0,0,0,6,0,0],
-        [0,0,0,2,4,0,0,0,0],
-        [0,0,0,0,0,0,9,6,0],
-        [0,0,0,1,6,0,0,7,0],
-        [0,4,8,0,7,0,0,0,0],
-        [0,0,1,0,0,3,4,0,5],
-        [0,0,9,0,0,8,0,0,0],
-        [0,0,6,0,0,5,8,0,0]
-    ])
-    print(ret)
+        # unicity test 1
+        print("--- Testing check_unicity() #1")
+        ret = check_unicity([
+            [0,0,0,0,0,0,1,9,0],
+            [2,3,0,0,0,0,6,0,0],
+            [0,0,0,2,4,0,0,0,0],
+            [0,0,0,0,0,0,9,6,0],
+            [0,0,0,1,6,0,0,7,0],
+            [0,4,8,0,7,0,0,0,0],
+            [0,0,1,0,0,3,4,0,5],
+            [0,0,9,0,0,8,0,0,0],
+            [0,0,6,0,0,5,8,0,0]
+        ])
+        print(ret)
 
-    # unicity test 2
-    print("--- Testing check_unicity() #2")
-    ret = check_unicity([[1, 0, 0, 0, 0, 8, 4, 7, 0, ],
-        [5, 0, 0, 0, 0, 0, 0, 0, 0, ],
-        [0, 4, 0, 0, 0, 1, 0, 3, 0, ],
-        [0, 0, 0, 2, 0, 0, 0, 0, 0, ],
-        [0, 0, 0, 3, 0, 4, 6, 0, 0, ],
-        [0, 0, 8, 1, 0, 0, 0, 0, 0, ],
-        [0, 0, 0, 0, 6, 0, 0, 0, 5, ],
-        [0, 0, 0, 8, 0, 5, 0, 2, 0, ],
-        [0, 6, 0, 4, 3, 7, 0, 0, 0]])
-    print(ret)
+        # unicity test 2
+        print("--- Testing check_unicity() #2")
+        ret = check_unicity([[1, 0, 0, 0, 0, 8, 4, 7, 0, ],
+            [5, 0, 0, 0, 0, 0, 0, 0, 0, ],
+            [0, 4, 0, 0, 0, 1, 0, 3, 0, ],
+            [0, 0, 0, 2, 0, 0, 0, 0, 0, ],
+            [0, 0, 0, 3, 0, 4, 6, 0, 0, ],
+            [0, 0, 8, 1, 0, 0, 0, 0, 0, ],
+            [0, 0, 0, 0, 6, 0, 0, 0, 5, ],
+            [0, 0, 0, 8, 0, 5, 0, 2, 0, ],
+            [0, 6, 0, 4, 3, 7, 0, 0, 0]])
+        print(ret)

@@ -71,9 +71,22 @@ def example2():
         [0, 0, 0, 2, 0, 0, 6, 0, 0]]
     sud = Sudoku(board=b)
     #print(check_unicity(b, verbose=True))
-    print("[SOLVING]")
     sud.interactive_solve()
-    
+
+# >>> EXAMPLE 3
+# This is a not particularly exciting example, but the classic 8-moves do not solve it. However with the help of naked
+# tuples it can be completed.
+def example3():
+    sud = Sudoku(board=[[0, 0, 8, 0, 0, 0, 6, 0, 3], 
+        [0, 2, 0, 0, 0, 9, 0, 0, 0], 
+        [0, 0, 0, 8, 0, 0, 4, 5, 0], 
+        [8, 5, 6, 0, 7, 0, 0, 0, 0], 
+        [0, 0, 4, 0, 0, 0, 5, 0, 0], 
+        [0, 0, 0, 0, 6, 0, 8, 9, 7], 
+        [0, 8, 7, 0, 0, 6, 0, 0, 0], 
+        [0, 0, 0, 3, 0, 0, 0, 8, 0], 
+        [2, 0, 3, 0, 0, 0, 1, 0, 0]])
+    sud.interactive_solve()
     
 
 if __name__ == "__main__":

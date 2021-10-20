@@ -16,14 +16,17 @@ Követelmények:
 - Írjatok egy "nehéz sudoku generálót", azaz egy programot ami olyan sudokukat készít, amiket csak nagy k értékekkre tudtok megoldani. 
 - A program ne fusson tovább pár másodpercnél. 
 
+*Ez egy nagyon szép feladatleírás, mint az látszik. A mi célunk, hogy ezt ne teljesítsük, hanem egy Sudokut emberi módon oldó programot írjunk.*
+
 ### Megoldás
 *Utoljára frissítve: 2021.10.16. 18:15*
+
 Jelenleg a kód mindig 8 mezőből következtet egy adott mező értékére.
 - Kitalálja, hogy egy mezőn csak 1 szám lehet, mert az összes többi szerepel a sorában, oszlopában, vagy a négyzetében
 - Kitalálja, hogy egy soron/oszlopon/négyzeten belül valamelyik számnak egy adott mezőre kell mennie, mert az összes többiről ki van tiltva
 
 Végiggondolható, hogy mindkét módszer mindig legfeljebb 8 mezőt használ valójában.
 
-Másrészt a projekthez tartozik egy egyértelműség-ellenőrző DFS is, amellyel be tudjuk látni, hogy az előző programnak képtelennek kell lennie a feladat megoldására. Nem talátunk (még) sudokut, ami egyértelmű lenne, és az első program nem oldotta volna meg.
+Másrészt a projekthez tartozik egy egyértelműség-ellenőrző DFS is, amellyel be tudjuk látni, hogy az előző programnak képtelennek kell lennie a feladat megoldására.
 
 Készült a projekthez még sudoku szerkesztő, input-output segédfüggvények, internetről letöltő függvény, és interaktív megoldó is. A kód parancssorból futtatásra alkalmas. A fontosabb példa-sudokukat is elmentettük.

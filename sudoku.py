@@ -2,6 +2,7 @@
 #       SUDOKU MANAGEMENT & SOLVING
 # ==========================================
 from boardio import *
+from tracker import *
 from itertools import product
 import numpy as np
 import copy
@@ -16,6 +17,7 @@ class Sudoku:
         "colpos":  "this number can only go here in its column.",
         "secpos":  "this number can only go here in its 3x3 square."}
 
+    # >>> DATA MANIPULATION
     def __init__(self, board=None, tuples=None):
         '''Initialize a sudoku either with:
         board: list of lists
@@ -30,14 +32,15 @@ class Sudoku:
             raise ValueError("'board' or 'tuples' must be given in the contructor.")
         
         self.board=[[0 for _ in range(9)] for _ in range(9)] # the board containing the filled in values and 0 in the empty cells
-        self.allowed=[[set(range(1,10)) for _ in range(9)] for _ in range(9)] # values which can be still written here
+        self.allowed=[[diclen(range(1,10)) for _ in range(9)] for _ in range(9)] # values which can be still written here
 
-        self.rowpos=[[set(range(9)) for _ in range(9)] for _ in range(9)] # j. sorban az i hova mehet meg
-        self.colpos=[[set(range(9)) for _ in range(9)] for _ in range(9)] # j. oszlopban az i hova mehet meg
-        self.secpos=[[set([(i,j) for i in range(3) for j in range(3)]) for _ in range(9)] for _ in range(9)] # az adott sectionben az adott szám hova mehet
+        self.rowpos=[[diclen() for _ in range(9)] for _ in range(9)] # j. sorban az i hova mehet meg
+        self.colpos=[[diclen() for _ in range(9)] for _ in range(9)] # j. oszlopban az i hova mehet meg
+        self.secpos=[[diclen(((i,j) for i in range(3) for j in range(3))) for _ in range(9)] for _ in range(9)] # az adott sectionben az adott szám hova mehet
         
         self.missing = 9*9
         self.proof = []
+        self.filler_deductions = []
         for row, col, val in tuples:
             self[row, col] = val
     
@@ -50,38 +53,86 @@ class Sudoku:
         row = key[0]
         col = key[1]
         self.board[row][col]=val
+        im_filled = IsValue((row, col), val)
         # stop tracking this value
-        self.rowpos[row][val-1] = set()
-        self.colpos[col][val-1] = set()
-        self.secpos[cell_section(row,col)][val-1] = set()
+        for i in range(9):
+            self.rowpos[row][val-1][i] = im_filled
+            self.colpos[col][val-1][i] = im_filled
+            self.secpos[cell_section(row,col)][val-1][(i//3,i%3)] = im_filled
         # no more values can be written this position...
-        self.allowed[row][col] = set()
+        # TODO: this is useless, as these values won't be accessed again
+        #for i in range(9):
+        #    self.allowed[row][col][i] = im_filled
         for i in range(9): # ...in this 3×3 section
-            self.secpos[cell_section(row,col)][i].discard(global_to_local(row,col))
+            self.secpos[cell_section(row,col)][i][global_to_local(row, col)] = im_filled
         for i in range(9): # ...in this row and column
-            self.rowpos[row][i].discard(col)
-            self.colpos[col][i].discard(row)
+            self.rowpos[row][i][col] = im_filled
+            self.colpos[col][i][row] = im_filled
 
         # this value can't be written anymore...
         #   ...in this row, column and section:
         for i in range(9):
-            self.allowed[i][col].discard(val)
-            self.allowed[row][i].discard(val)
+            self.allowed[i][col][val] = im_filled
+            self.allowed[row][i][val] = im_filled
             p = local_to_global(cell_section(row, col),i//3,i%3)
-            self.allowed[p[0]][p[1]].discard(val)
+            self.allowed[p[0]][p[1]][val] = im_filled
         #   ...in certain positions in other rows/columns:
         for i in range(9):
-            self.rowpos[i][val-1].discard(col)
-            self.colpos[i][val-1].discard(row)
+            self.rowpos[i][val-1][col] = im_filled
+            self.colpos[i][val-1][row] = im_filled
         #   ...in certain positions in other secs:
         for i in range(9):
-            self.secpos[cell_section(i,col)][val-1].discard(global_to_local(i,col))
+            self.secpos[cell_section(i,col)][val-1][global_to_local(i,col)] = im_filled
         for i in range(9):
-            self.secpos[cell_section(row,i)][val-1].discard(global_to_local(row,i))
+            self.secpos[cell_section(row,i)][val-1][global_to_local(row,i)] = im_filled
 
     def __getitem__(self, key):
         return self.board[key[0]][key[1]]
     
+    # >>> STORING DEDUCTIONS
+    def make_deduction(self, knowledge, rule, reasons=None):
+        '''Store a deduction which yields 'knowledge' applying 'rule' to Knowlegde instances 'reasons'.'''
+        cons = Consequence(reasons, rule)
+        if isinstance(knowledge, MustBe):
+            for ded in self.filler_deductions: # if this deduction was already made, save this as an alternative proof
+                if ded.result == knowledge:
+                    ded.add_reason(cons)
+                    break
+            else: # if this deduction has not been made yet, create and save it!
+                self.filler_deductions.append(Deduction([cons], knowledge))
+        elif isinstance(knowledge, CantBe):
+            # find this Knowledge if it exists:
+            old = self._get_knowledge(knowledge)
+            if isinstance(old, Deduction): # this deduction already exists
+                old.add_reason(cons)
+            else:
+                self._store_new_deduction(Deduction([cons], knowledge))
+    
+    def _get_knowledge(self, k):
+        '''Given a Knowledge instance 'k', returns the data stored at its position, corresponding to its value.
+        This means it either returns a Deduction instance (if this knowledge has been already acquired), and None otherwise.'''
+        if k.coordtype == "cell":
+            return self.allowed[k.position[0]][k.position[1]][k.value]
+        elif k.coordtype == "rowpos":
+            return self.rowpos[k.position[0]][k.value-1][k.position[1]]
+        elif k.coordtype == "cellpos":
+            return self.colpos[k.position[0]][k.value-1][k.position[1]]
+        elif k.coordtype == "secpos":
+            return self.secpos[k.position[0]][k.value-1][k.position[1]]
+    
+    def _store_new_deduction(self, deduction):
+        '''Stores a given deduction in the correct place.'''
+        k = deduction.result
+        if k.coordtype == "cell":
+            self.allowed[k.position[0]][k.position[1]][k.value] = deduction
+        elif k.coordtype == "rowpos":
+            self.rowpos[k.position[0]][k.value-1][k.position[1]] = deduction
+        elif k.coordtype == "cellpos":
+            self.colpos[k.position[0]][k.value-1][k.position[1]] = deduction
+        elif k.coordtype == "secpos":
+            self.secpos[k.position[0]][k.value-1][k.position[1]] = deduction
+    
+    # >>> SOLVERS
     def solve(self): # TODO: make this more interactive AND/OR make this terminate more nicely
         '''Attempts to solve this sudoku only using a fixed set of deductions. This set currently is:
         - only 1 value can be written to (i,j), as all others are present in this row+column+section
@@ -98,19 +149,20 @@ class Sudoku:
                     print(f"cannot fill cell {i},{j}")
                     return
                 if len(tmp)==1: # if only a single value is allowed: FILL!
-                    ass = list(tmp)[0]
+                    ass =tmp.last_one()
                     self.proof.append({"row": i, "col": j, "val": ass, "rule": "allowed"})
+                    # self.make_deduction(MustBe((i,j),ass),'allowed',[tmp[i] for i in range(9) if i != ass])
                     self[i,j] = ass
             # RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
             for i, j in product(range(9), range(9)):
-                if len(self.rowpos[i][j])==1:
-                    self.proof.append({"row": i, "col": list(self.rowpos[i][j])[0], "val": j+1, "rule": "rowpos"})
-                    self[i, list(self.rowpos[i][j])[0]] = j+1
+                if len(self.rowpos[i][j]) == 1:
+                    self.proof.append({"row": i, "col": self.rowpos[i][j].last_one(), "val": j+1, "rule": "rowpos"})
+                    self[i, self.rowpos[i][j].last_one()] = j+1
                 if len(self.colpos[i][j])==1:
-                    self.proof.append({"row": list(self.colpos[i][j])[0], "col": i, "val": j+1, "rule": "colpos"})
-                    self[list(self.colpos[i][j])[0], i] = j+1
+                    self.proof.append({"row": self.colpos[i][j].last_one(), "col": i, "val": j+1, "rule": "colpos"})
+                    self[self.colpos[i][j].last_one(), i] = j+1
                 if len(self.secpos[i][j])==1:
-                    p = local_to_global(i,*list(self.secpos[i][j])[0])
+                    p = local_to_global(i,*self.secpos[i][j].last_one())
                     self.proof.append({"row": p[0], "col": p[1], "val": j+1, "rule": "secpos"})
                     self[p] = j+1
         return self.missing == 0
@@ -144,8 +196,8 @@ class Sudoku:
                 if self.board[r][c] != 0:
                     print(f"ERROR: ({r}, {c}) is already filled with {self.board[r][c]}")
                     continue
-                if v not in self.allowed[r][c]:
-                    print(f"ERROR: {v} is not allowed at ({r}, {c}); allowed numbers: {self.allowed[r][c]}")
+                if self.allowed[r][c][v] is not None:
+                    print(f"ERROR: {v} is not allowed at ({r}, {c}); allowed numbers: {self.allowed[r][c].allowed()}")
                     continue  
                 self[r,c] = v
                 print(f"({r}, {c}) has been set to {v}.")
@@ -158,11 +210,8 @@ class Sudoku:
                 cells = [(int(halves[0][2*i]),int(halves[0][2*i+1])) for i in range(len(halves[0])//2)]
                 to_ban = {int(d) for d in halves[1]}
                 for r, c in cells:
-                    self.allowed[r][c] -= to_ban
                     for val in to_ban:
-                        self.rowpos[r][val-1].discard(c)
-                        self.colpos[c][val-1].discard(r)
-                        self.secpos[cell_section(r, c)][val-1].discard(global_to_local(r, c))
+                        self.ban(r,c,val,'deus_ex',[])
                 print(f"{to_ban} banned from the following cells: {cells}")
             elif k == 'u' or k == 'unique':
                 print("Checking unicity of the puzzle. Please wait.")
@@ -181,14 +230,14 @@ class Sudoku:
                     file = file.group("path")
                     print(f"Printing output to {file}.")
                 # Simplify k:
-                k = re.sub(r'\sfile="(.*?)"','',k)
+                k = re.sub(r'\s-?-?file="(.*?)"','',k)
                 k = re.sub(r'[^\d:]+','',k)
                 if k == '':
                     k = ':'
                 # Process k into proper slice indicies:
                 halves = k.split(':')
                 if len(halves) != 2:
-                    print("ERROR: could not parse input. Please use 'proof {first_idx}:{last_idx}'")
+                    print("ERROR: could not parse input. Please use 'proof [file=\"{file_path}\", optional] {first_line}:{last_line}'")
                     continue
                 start = int(halves[0]) if halves[0] != '' else 0
                 end = int(halves[1]) if halves[1] != '' else len(self.proof)
@@ -224,7 +273,7 @@ class Sudoku:
     
     def print_status(self):
         '''Prints a detailed representation of the current state of the puzzle. Each cell contains which numbers can be written there.'''
-        print_detailed_board(self.board, [[self.allowed[r][c] for c in range(9)] for r in range(9)])
+        print_detailed_board(self.board, [[self.allowed[r][c].allowed() for c in range(9)] for r in range(9)])
     
     def proof_to_string(self, idx):
         '''Converts the data of the ith proof step to a string.'''
@@ -240,20 +289,13 @@ class Sudoku:
             with open(file, 'w') as f:
                 for i in range(start, end):
                     f.write(self.proof_to_string(i)+'\n')
-        
-
-# >>> HELPERS
-def cell_section(i,j):
-    '''the 0-9 id of the 3×3 section containing this cell given in the 9×9 grid'''
-    return ((i)//3)*3+j//3
-
-def local_to_global(sec,i,j):
-    '''global coordinates of local i,j in sector sec'''
-    return (sec//3*3+i,sec%3*3+j)
-
-def global_to_local(i,j):
-    '''coordinates of a cell given in the 9×9 grid, inside its 3×3 section'''
-    return (i%3,j%3)
+    
+    def ban(self, row, col, value, rule, cells_used):
+        '''Ban value from (row, col) using 'rule' applied to 'reasons'.'''
+        self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
+        self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
+        self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
+        self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
 
 # >>> SOLVERS
 def check_unicity(board_to_solve, verbose=False):

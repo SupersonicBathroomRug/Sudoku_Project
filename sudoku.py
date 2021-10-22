@@ -8,6 +8,7 @@ import numpy as np
 import copy
 from sys import argv
 from getopt import getopt
+import time
 
 class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
@@ -18,7 +19,7 @@ class Sudoku:
         "secpos":  "this number can only go here in its 3x3 square."}
 
     # >>> DATA MANIPULATION
-    def __init__(self, board=None, tuples=None):
+    def __init__(self, board=None, tuples=None, k_opt=True):
         '''Initialize a sudoku either with:
         board: list of lists
             A matrix representation of the sudoku table, with 0s in empty cells.
@@ -40,7 +41,12 @@ class Sudoku:
         
         self.missing = 9*9
         self.proof = []
-        self.filler_deductions = []
+        self.filler_deductions = set()
+
+        self.k_opt = k_opt
+        self.deduction_time = 0
+        self.k_opt_time = 0
+        self.fill_time = 0
         for row, col, val in tuples:
             self[row, col] = val
     
@@ -91,22 +97,27 @@ class Sudoku:
     
     # >>> STORING DEDUCTIONS
     def make_deduction(self, knowledge, rule, reasons=None):
-        '''Store a deduction which yields 'knowledge' applying 'rule' to Knowlegde instances 'reasons'.'''
+        '''Store a deduction which yields 'knowledge' applying 'rule' to Knowlegde instances 'reasons'.
+        Return True if this is a new deduction.'''
+        p = knowledge.get_pos()
+        if self.board[p[0]][p[1]] != 0:
+            return False
         cons = Consequence(reasons, rule)
         if isinstance(knowledge, MustBe):
             for ded in self.filler_deductions: # if this deduction was already made, save this as an alternative proof
                 if ded.result == knowledge:
-                    ded.add_reason(cons)
-                    break
-            else: # if this deduction has not been made yet, create and save it!
-                self.filler_deductions.append(Deduction([cons], knowledge))
+                    return ded.add_reason(cons)
+            # if this deduction has not been made yet, create and save it!
+            self.filler_deductions.add(Deduction([cons], knowledge))
+            return True
         elif isinstance(knowledge, CantBe):
             # find this Knowledge if it exists:
             old = self._get_knowledge(knowledge)
             if isinstance(old, Deduction): # this deduction already exists
-                old.add_reason(cons)
+                return old.add_reason(cons)
             else:
                 self._store_new_deduction(Deduction([cons], knowledge))
+                return True
     
     def _get_knowledge(self, k):
         '''Given a Knowledge instance 'k', returns the data stored at its position, corresponding to its value.
@@ -137,35 +148,60 @@ class Sudoku:
         '''Attempts to solve this sudoku only using a fixed set of deductions. This set currently is:
         - only 1 value can be written to (i,j), as all others are present in this row+column+section
         - v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them'''
-        last_missing = self.missing+1
-        while last_missing != self.missing:
-            last_missing = self.missing
-            # RULE: only 1 value can be written to this cell, as all others are present in this row+column+section
-            for i, j in product(range(9), range(9)):
-                if self.board[i][j]!=0:
-                    continue
-                tmp = self.allowed[i][j] # which numbers are not present in this row+column+section?
-                if len(tmp)==0: # if nothing is allowed in this empty cell: CONTRADICTION!
-                    print(f"cannot fill cell {i},{j}")
-                    return
-                if len(tmp)==1: # if only a single value is allowed: FILL!
-                    ass =tmp.last_one()
-                    self.proof.append({"row": i, "col": j, "val": ass, "rule": "allowed"})
-                    # self.make_deduction(MustBe((i,j),ass),'allowed',[tmp[i] for i in range(9) if i != ass])
-                    self[i,j] = ass
-            # RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
-            for i, j in product(range(9), range(9)):
-                if len(self.rowpos[i][j]) == 1:
-                    self.proof.append({"row": i, "col": self.rowpos[i][j].last_one(), "val": j+1, "rule": "rowpos"})
-                    self[i, self.rowpos[i][j].last_one()] = j+1
-                if len(self.colpos[i][j])==1:
-                    self.proof.append({"row": self.colpos[i][j].last_one(), "col": i, "val": j+1, "rule": "colpos"})
-                    self[self.colpos[i][j].last_one(), i] = j+1
-                if len(self.secpos[i][j])==1:
-                    p = local_to_global(i,*self.secpos[i][j].last_one())
-                    self.proof.append({"row": p[0], "col": p[1], "val": j+1, "rule": "secpos"})
-                    self[p] = j+1
-        return self.missing == 0
+        timestamp = time.time()
+        while self.missing > 0:
+            made_deduction = True
+            # MAKE DEDUCTIONS WHILE POSSIBLE
+            while made_deduction:
+                made_deduction = False
+                # RULE: only 1 value can be written to this cell, as all others are present in this row+column+section
+                for i, j in product(range(9), range(9)):
+                    if self.board[i][j]!=0: # left here to enable contradiction check
+                        continue
+                    tmp = self.allowed[i][j] # which numbers are not present in this row+column+section?
+                    if len(tmp)==0: # if nothing is allowed in this empty cell: CONTRADICTION!
+                        print(f"cannot fill cell {i},{j}")
+                        return
+                    if len(tmp)==1: # if only a single value is allowed: FILL!
+                        ass =tmp.last_one()
+                        made_deduction |= self.make_deduction(MustBe((i,j),ass),
+                            'allowed',tmp.notNones())
+                # RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
+                # ignoring already filled cells is done be make_deduction
+                for i, j in product(range(9), range(9)):
+                    if len(self.rowpos[i][j]) == 1:
+                        made_deduction |= self.make_deduction(MustBe((i,self.rowpos[i][j].last_one()),j+1,'rowpos'),
+                            'rowpos',self.rowpos[i][j].notNones())
+                    if len(self.colpos[i][j])==1:
+                        made_deduction |= self.make_deduction(MustBe((i,self.colpos[i][j].last_one()),j+1,'colpos'),
+                            'colpos',self.colpos[i][j].notNones())
+                    if len(self.secpos[i][j])==1:
+                        p = local_to_global(i,*self.secpos[i][j].last_one())
+                        made_deduction |= self.make_deduction(MustBe((i,self.secpos[i][j].last_one()),j+1,'secpos'),
+                            'secpos',self.secpos[i][j].notNones())
+            self.deduction_time += time.time() - timestamp
+            timestamp = time.time()
+            # EXIT IF NECESSARY
+            if len(self.filler_deductions) == 0:
+                return False
+            # DECIDE HOW TO PROVE THIS STEP
+            proofstep = ProofStep(self.filler_deductions, self.k_opt)
+            self.proof.append(proofstep)
+            self.k_opt_time += time.time() - timestamp
+            timestamp = time.time()
+            # FILL THE SELECTED CELL
+            self[proofstep.position] = proofstep.value
+            self.fill_time += time.time() - timestamp
+            timestamp = time.time()  
+        return True
+    
+    def fill_a_cell(self):
+        '''Fills a cell using the deductions previously made.'''
+        pass
+    
+    def find_best_move(self):
+        '''Decides which cell needs the lowest k to fill, and returns data representing this.'''
+        pass
 
     def interactive_solve(self):
         '''Interactive solver tool. Type 'h' or 'help' for help.'''
@@ -229,6 +265,15 @@ class Sudoku:
                 if file != None:
                     file = file.group("path")
                     print(f"Printing output to {file}.")
+                # Get params; optional
+                print_isvalue = False
+                if re.search(r'\s-?-?[iI]s[vV]alue',k) is not None:
+                    print_isvalue = True
+                    k = re.sub(r'\s-?-?[iI]s[vV]alue','',k)
+                print_reference = False
+                if re.search(r'\s-?-?ref(erence)?',k) is not None:
+                    print_reference = True
+                    k = re.sub(r'\s-?-?ref(erence)?','',k)
                 # Simplify k:
                 k = re.sub(r'\s-?-?file="(.*?)"','',k)
                 k = re.sub(r'[^\d:]+','',k)
@@ -244,7 +289,7 @@ class Sudoku:
                 if end > len(self.proof):
                     print(f"WARNING: specified range too large; proof only has {len(self.proof)} steps so far.")
                 # Execute printing:
-                self.print_proof(file=file, start=start, end=min(end, len(self.proof)))
+                self.print_proof(file, start, min(end, len(self.proof)),isvalue=print_isvalue, reference=print_reference)
             elif k == "h" or k == "help":
                 print("Commands:")
                 print("   print:")
@@ -275,20 +320,22 @@ class Sudoku:
         '''Prints a detailed representation of the current state of the puzzle. Each cell contains which numbers can be written there.'''
         print_detailed_board(self.board, [[self.allowed[r][c].allowed() for c in range(9)] for r in range(9)])
     
-    def proof_to_string(self, idx):
+    def proof_to_string(self, idx, isvalue=False, reference=False):
         '''Converts the data of the ith proof step to a string.'''
-        return f"[#{idx}] "+"({row}, {col}) is {val}, because ".format(**self.proof[idx])+Sudoku.rule_to_string[self.proof[idx]["rule"]]
-    
-    def print_proof(self, file=None, start=0, end=None):
+        ret = f"[#{idx}, k={self.proof[idx].k}] {self.proof[idx].position} is {self.proof[idx].value}, because:\n\t"
+        ret += "\n\t".join(self.proof[idx].to_strings(reference,isvalue))
+        return ret
+
+    def print_proof(self, file=None, start=0, end=None, isvalue=False, reference=False):
         '''Prints proof steps from #start to #end (default: 0 and last) to the specified file, or the console if file is None.'''
         if end is None: end = len(self.proof)
         if file is None:
             for i in range(start, end):
-                print(self.proof_to_string(i))
+                print(self.proof_to_string(i,isvalue,reference))
         else:
             with open(file, 'w') as f:
                 for i in range(start, end):
-                    f.write(self.proof_to_string(i)+'\n')
+                    f.write(self.proof_to_string(i,isvalue,reference)+'\n')
     
     def ban(self, row, col, value, rule, cells_used):
         '''Ban value from (row, col) using 'rule' applied to 'reasons'.'''

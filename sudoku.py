@@ -12,11 +12,6 @@ import time
 
 class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
-    rule_to_string = {
-        "allowed": "only this number can be written here.",
-        "rowpos":  "this number can only go here in its row.",
-        "colpos":  "this number can only go here in its column.",
-        "secpos":  "this number can only go here in its 3x3 square."}
 
     # >>> DATA MANIPULATION
     def __init__(self, board=None, tuples=None, k_opt=True):
@@ -31,22 +26,24 @@ class Sudoku:
             tuples = init_tuples_from_array(board)
         else:
             raise ValueError("'board' or 'tuples' must be given in the contructor.")
-        
+        # cell-based variables:
         self.board=[[0 for _ in range(9)] for _ in range(9)] # the board containing the filled in values and 0 in the empty cells
         self.allowed=[[diclen(range(1,10)) for _ in range(9)] for _ in range(9)] # values which can be still written here
-
+        # position-based variables:
         self.rowpos=[[diclen() for _ in range(9)] for _ in range(9)] # j. sorban az i hova mehet meg
         self.colpos=[[diclen() for _ in range(9)] for _ in range(9)] # j. oszlopban az i hova mehet meg
         self.secpos=[[diclen(((i,j) for i in range(3) for j in range(3))) for _ in range(9)] for _ in range(9)] # az adott sectionben az adott szám hova mehet
-        
+        # proof storage
         self.missing = 9*9
         self.proof = []
         self.filler_deductions = set()
-
+        # stats:
         self.k_opt = k_opt
         self.deduction_time = 0
         self.k_opt_time = 0
         self.fill_time = 0
+        self.failed_solves = 0
+        self.deus_ex_sets = 0
         for row, col, val in tuples:
             self[row, col] = val
     
@@ -183,6 +180,7 @@ class Sudoku:
             timestamp = time.time()
             # EXIT IF NECESSARY
             if len(self.filler_deductions) == 0:
+                self.failed_solves += 1
                 return False
             # DECIDE HOW TO PROVE THIS STEP
             proofstep = ProofStep(self.filler_deductions, self.k_opt)
@@ -194,14 +192,6 @@ class Sudoku:
             self.fill_time += time.time() - timestamp
             timestamp = time.time()  
         return True
-    
-    def fill_a_cell(self):
-        '''Fills a cell using the deductions previously made.'''
-        pass
-    
-    def find_best_move(self):
-        '''Decides which cell needs the lowest k to fill, and returns data representing this.'''
-        pass
 
     def interactive_solve(self):
         '''Interactive solver tool. Type 'h' or 'help' for help.'''
@@ -236,6 +226,7 @@ class Sudoku:
                     print(f"ERROR: {v} is not allowed at ({r}, {c}); allowed numbers: {self.allowed[r][c].allowed()}")
                     continue  
                 self[r,c] = v
+                self.deus_ex_sets += 1
                 print(f"({r}, {c}) has been set to {v}.")
             elif k.startswith("ban "):
                 k = re.sub(r'[^\d:]+','',k)
@@ -259,7 +250,7 @@ class Sudoku:
                     print("[NOT UNIQUE] This puzzle has multiple solutions. Two of these are:")
                     print_board(sols[0])
                     print_board(sols[1])
-            elif k.startswith("proof"):
+            elif k.startswith("proof "):
                 # Get name of the output file; optional
                 file = re.search(r"""\s-?-?file=(?P<quote>['"])(?P<path>.*?)(?P=quote)""", k) 
                 if file != None:
@@ -290,6 +281,28 @@ class Sudoku:
                     print(f"WARNING: specified range too large; proof only has {len(self.proof)} steps so far.")
                 # Execute printing:
                 self.print_proof(file, start, min(end, len(self.proof)),isvalue=print_isvalue, reference=print_reference)
+            elif k.startswith('k_') or k.startswith('k-'):
+                if re.match(r'k[-_]opt(imi[sz]ation)?(\s*=\s*|\s+)(off|Off|OFF|false|False|FALSE)', k) is not None:
+                    self.k_opt = False
+                elif re.match(r'k[-_]opt(imi[sz]ation)?(\s*=\s*|\s+)(on|On|ON|true|True|TRUE)', k) is not None:
+                    self.k_opt = True
+                elif re.match(r'k[-_]opt(imi[sz]ation)?\s*$',k) is not None:
+                    print(f"k-optimization: {'ON' if self.k_opt else 'OFF'}")
+                else:
+                    print("ERROR: could not parse input. Please use 'k-opt [OFF/ON]'")
+            elif k == "stats":
+                print(f"RUNTIME:                   {self.deduction_time+self.k_opt_time+self.fill_time} s")
+                print(f"| Deduction time:          {self.deduction_time} s")
+                print(f"| k-optimization time:     {self.k_opt_time} s")
+                print(f"| Fill time:               {self.fill_time} s\n")
+                print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}\n")
+                print(f"| Failed solves:           {self.failed_solves}")
+                print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")
+                print(f"| Deus ex sets:            {self.deus_ex_sets}\n")
+                print(f"Proof steps made:          {len(self.proof)}")
+                print(f"| Weak k-approximations:   {sum((1 if (s.approximation or (not s.k_opt)) and s.k>8 else 0 for s in self.proof))}")
+                print(f"| Strong k-approximations: {sum((1 if (s.approximation or (not s.k_opt)) and s.k<=8 else 0 for s in self.proof))}")
+                print(f"| Maximal k:               {0 if len(self.proof)==0 else max((step.k for step in self.proof))}")
             elif k == "h" or k == "help":
                 print("Commands:")
                 print("   print:")
@@ -429,6 +442,7 @@ if __name__ == "__main__":
             [0, 0, 0, 3, 0, 0, 0, 8, 0], 
             [2, 0, 3, 0, 0, 0, 1, 0, 0]])
         sud.interactive_solve()
+    if False: # TODO: move this to a different file?
         # solve test
         print("--- Testing solve()")
         sud = Sudoku(tuples=init_tuples_from_text('''

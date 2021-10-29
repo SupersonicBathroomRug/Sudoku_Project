@@ -1,3 +1,9 @@
+# =======================================================
+#       TRACKING AND STORING WHAT IMPLIES WHAT
+#                          &
+#               PRETTY PRINTING PROOFS
+# =======================================================
+
 # >>> HELPERS
 def cell_section(i,j):
     '''the 0-9 id of the 3×3 section containing this cell given in the 9×9 grid'''
@@ -112,7 +118,8 @@ class Consequence:
     '''Stores the reasons for a given deduction. This is a separate class, because a given deduction may have multiple proofs.'''
     def __init__(self, of, rule, details=None):
         '''Initiates a Consequence object. 'rule' is a string id of the rule being applied. 'of' is a list of 
-        Knowledge or Deduction instances, which imply the result.'''
+        Knowledge or Deduction instances, which imply the result. 'details' may store additional info about the deduction
+        (such as which are the two cells we use <naked pairs> for).'''
         self.rule = rule
         self.of = list(set(of))
         self.details = details
@@ -141,8 +148,7 @@ class Consequence:
         return hash((self.rule, self.of))
 
 class Deduction:
-    '''Stores a Knowledge achieved by deduction with the possible ways to deduce this information.
-    This class WON'T be seen at interface level.'''
+    '''Stores a Knowledge achieved by deduction with the possible ways to deduce this information.'''
     def __init__(self, consequence_of, result):
         '''Initiates a Deduction object. 'consequence_of' is a list of Consequence instances, 'result' is the knowledge deduced.'''
         self.result = result
@@ -160,9 +166,10 @@ class Deduction:
         return str(self.result)+", "+str(self.consequence_of[0])
     
     def __eq__(self, other):
-        return (self.__class__ == other.__class__) and \
-            (set(self.consequence_of) == set(other.consequence_of)) and \
-            (self.result == other.result)
+        return id(self) == id(other)
+        # return (self.__class__ == other.__class__) and \
+        #     (set(self.consequence_of) == set(other.consequence_of)) and \
+        #     (self.result == other.result)
     
     def __hash__(self):
         return hash(id(self)) # len: stop infinite recursion HERE!
@@ -173,8 +180,6 @@ class ProofStep:
     Member variables:
     k: int
         How many cells are used overall?
-    cells: list((row, col) tuples)
-        Which cells are used?
     proof: list(Knowledge/Deduction instances)
         The steps of the proof in order.
     proof_order: dict(Knowledge/Deduction -> idx)
@@ -187,6 +192,7 @@ class ProofStep:
         self.proof_order = {}
         self.proof = []
         self.k = 0
+        self.k_opt = k_opt
         if True: # TODO: k_opt == False
             self.approximation = True
             deduction = next(iter(deductions))
@@ -274,6 +280,24 @@ class ProofStep:
                 else: # isinstance(step, IsValue)
                     ret.append(f'(L{i}) '+str(step))
             return ret
+    
+    # >>> GETTERS
+    def cells(self):
+        '''Returns which cells are used overall in this proofstep in a list.'''
+        c = []
+        for p in self.proof:
+            if isinstance(p, IsValue):
+                c.append(p.get_pos())
+        return c
+    
+    def deus_ex_steps(self):
+        '''Returns which Knowledge instances were obtained directly by deus ex in a set.'''
+        de = set()
+        for p in self.proof:
+            if isinstance(p, Deduction) and p.consequence_of[0].rule == "deus_ex":
+                de.add(p.result)
+        #print(*(str(f) for f in de))
+        return de
 
     @staticmethod
     def _remove_fulfilled_deductions(deductions, deduction):

@@ -167,9 +167,6 @@ class Deduction:
     
     def __eq__(self, other):
         return id(self) == id(other)
-        # return (self.__class__ == other.__class__) and \
-        #     (set(self.consequence_of) == set(other.consequence_of)) and \
-        #     (self.result == other.result)
     
     def __hash__(self):
         return hash(id(self)) # len: stop infinite recursion HERE!

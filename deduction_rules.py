@@ -3,7 +3,7 @@ from itertools import product
 from tracker import MustBe, cell_section, local_to_global
 
 def only_one_value(sudoku):
-    # RULE: only 1 value can be written to this cell, as all others are present in this row+column+section
+    """RULE: only 1 value can be written to this cell, as all others are present in this row+column+section"""
     made_deduction = False
     for i, j in product(range(9), range(9)):
         if sudoku.board[i][j]!=0: # left here to enable contradiction check
@@ -19,8 +19,8 @@ def only_one_value(sudoku):
     return made_deduction
 
 def only_this_cell(sudoku):
-    # RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
-    # ignoring already filled cells is done be make_deduction
+    """RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
+    ignoring already filled cells is done be make_deduction"""
     made_deduction = False
     for i, j in product(range(9), range(9)):
         if len(sudoku.rowpos[i][j]) == 1:
@@ -36,7 +36,7 @@ def only_this_cell(sudoku):
     return made_deduction
 
 def nake_pair(sudoku):
-    # RULE: if v and w can be written only to two cells in this row/col/sec, then remove it from the other cells of the row/col/sec.
+    """RULE: if v and w can be written only to two cells in this row/col/sec, then remove it from the other cells of the row/col/sec."""
     made_deduction = False
     
     def search_for_nake_pairs(elems):

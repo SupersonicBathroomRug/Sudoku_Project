@@ -1,7 +1,7 @@
 # ==========================================
 #       SUDOKU MANAGEMENT & SOLVING
 # ==========================================
-from deduction_rules import nake_pair, only_one_value, only_this_cell
+from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell
 from boardio import *
 from tracker import *
 from itertools import product
@@ -154,6 +154,7 @@ class Sudoku:
                 only_one_value(self)
                 only_this_cell(self)
                 made_deduction |= nake_pair(self)
+                made_deduction |= hidden_pair(self)
 
             self.deduction_time += time.time() - timestamp
             timestamp = time.time()

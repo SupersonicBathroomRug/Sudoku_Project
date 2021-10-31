@@ -91,6 +91,7 @@ def nake_pair(sudoku):
     return _apply_for_nines(search_and_ban_in_subset)
 
 def hidden_pair(sudoku):
+    """RULE: if only v and w has number x and y then delete every number from v and w except x and y."""
     def search_hidden_pairs(elems):
         where_can_go = {i:[] for i in range(1,10)} # i-th number in which indeces of elems can go
         for idx,elem in enumerate(elems):

@@ -1,14 +1,16 @@
 # ==========================================
 #       SUDOKU MANAGEMENT & SOLVING
 # ==========================================
-from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell
-from boardio import *
-from tracker import *
-from itertools import product
+import re
 import numpy as np
+import time
+from boardio import edit_sudoku, fetch_puzzle, init_tuples_from_array, print_board, print_detailed_board
+from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell
+from tracker import CantBe, Consequence, Deduction, IsValue, MustBe, ProofStep
+from util import cell_section, local_to_global, global_to_local, diclen
 from sys import argv
 from getopt import getopt
-import time
+from itertools import product
 
 class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''

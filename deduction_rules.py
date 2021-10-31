@@ -1,5 +1,4 @@
 from itertools import product
-
 from tracker import MustBe, local_to_global
 
 def only_one_value(sudoku):

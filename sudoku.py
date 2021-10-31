@@ -6,7 +6,6 @@ from boardio import *
 from tracker import *
 from itertools import product
 import numpy as np
-import copy
 from sys import argv
 from getopt import getopt
 import time

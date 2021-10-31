@@ -1,6 +1,6 @@
 from itertools import product
 
-from tracker import MustBe, cell_section, local_to_global
+from tracker import MustBe, local_to_global
 
 def only_one_value(sudoku):
     """RULE: only 1 value can be written to this cell, as all others are present in this row+column+section"""

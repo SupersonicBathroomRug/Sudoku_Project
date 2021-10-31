@@ -35,6 +35,23 @@ def only_this_cell(sudoku):
                 'secpos',sudoku.secpos[i][j].notNones())
     return made_deduction
 
+def _apply_for_nines(func):
+    for row in range(9):
+        cells_to_check = [(row,col) for col in range(9)]
+        func(cells_to_check)
+
+    for col in range(9):
+        cells_to_check = [(row,col) for row in range(9)]
+        func(cells_to_check)
+
+    for sec in range(9):
+        cells_to_check = [local_to_global(sec,i,j) for i,j in product(range(3),range(3))]
+        func(cells_to_check)
+
+def ban_numbers(sudoku, row,col,numbers,rule, cells_used):
+    for number in numbers:
+        sudoku.ban(row,col,number,rule,cells_used)
+
 def nake_pair(sudoku):
     """RULE: if v and w can be written only to two cells in this row/col/sec, then remove it from the other cells of the row/col/sec."""
     made_deduction = False
@@ -43,11 +60,6 @@ def nake_pair(sudoku):
         """Returns a list of 2-tuples, where every tuple contains the indeces of the same input"""
         return [(i,j) for i in range(len(elems)) for j in range(i+1,len(elems)) if len(elems[i])==2 and elems[i]==elems[j]]
     
-    def ban_numbers(row,col,numbers,cells_used): # TODO
-        made_deduction = True
-        for number in numbers:
-            sudoku.ban(row,col,number,"nake_pair",cells_used)
-
     def search_and_ban_in_subset(cells_to_check):
         """Searches all nake-pairs in a subset of cells and bans these numbers from the other elements of subset."""
         allowed_numbers = []
@@ -64,18 +76,11 @@ def nake_pair(sudoku):
             cells_used = sudoku.allowed[current_naked_cell1[0]][current_naked_cell1[1]].notNones()+sudoku.allowed[current_naked_cell2[0]][current_naked_cell2[1]].notNones()
             for cell in cells_to_check:
                 if cell not in (cells_to_check[pair[0]],cells_to_check[pair[1]]):
-                    ban_numbers(cell[0],cell[1],deleted_numbers,cells_used)
+                    made_deduction = True
+                    ban_numbers(sudoku,cell[0],cell[1],deleted_numbers,"nake_pair",cells_used)
 
-    for row in range(9):
-        cells_to_check = [(row,col) for col in range(9)]
-        search_and_ban_in_subset(cells_to_check)
-
-    for col in range(9):
-        cells_to_check = [(row,col) for row in range(9)]
-        search_and_ban_in_subset(cells_to_check)
-
-    for sec in range(9):
-        cells_to_check = [local_to_global(sec,i,j) for i,j in product(range(3),range(3))]
-        search_and_ban_in_subset(cells_to_check)
-
+    _apply_for_nines(search_and_ban_in_subset)
+    
     return made_deduction
+
+

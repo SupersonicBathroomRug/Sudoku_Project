@@ -53,7 +53,7 @@ class Sudoku:
         '''Fill in the given cell with the given value.
         Take note of the new restricions this causes, and stop tracking this value & position further.'''
         if val == 0:
-            raise NotImplementedError("Cannot assign 0 to any cell!")
+            raise ValueError("Cannot assign 0 to any cell!")
         self.missing -= 1
         row = key[0]
         col = key[1]

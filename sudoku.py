@@ -151,8 +151,8 @@ class Sudoku:
             # MAKE DEDUCTIONS WHILE POSSIBLE
             while made_deduction:
                 made_deduction = False
-                made_deduction |= only_one_value(self)
-                made_deduction |= only_this_cell(self)
+                only_one_value(self)
+                only_this_cell(self)
                 made_deduction |= nake_pair(self)
 
             self.deduction_time += time.time() - timestamp

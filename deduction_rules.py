@@ -36,25 +36,28 @@ def only_this_cell(sudoku):
     return made_deduction
 
 def _apply_for_nines(func):
+    made_deduction = False
     for row in range(9):
         cells_to_check = [(row,col) for col in range(9)]
-        func(cells_to_check)
+        made_deduction |= func(cells_to_check)
 
     for col in range(9):
         cells_to_check = [(row,col) for row in range(9)]
-        func(cells_to_check)
+        made_deduction |= func(cells_to_check)
 
     for sec in range(9):
         cells_to_check = [local_to_global(sec,i,j) for i,j in product(range(3),range(3))]
-        func(cells_to_check)
+        made_deduction |= func(cells_to_check)
+    return made_deduction
 
-def ban_numbers(sudoku, row,col,numbers,rule, cells_used):
+def _ban_numbers(sudoku, cell,numbers,rule, cells_used):
+    made_deduction = False
     for number in numbers:
-        sudoku.ban(row,col,number,rule,cells_used)
+        made_deduction |= sudoku.ban(cell[0],cell[1],number,rule,cells_used)
+    return made_deduction
 
 def nake_pair(sudoku):
     """RULE: if v and w can be written only to two cells in this row/col/sec, then remove it from the other cells of the row/col/sec."""
-    made_deduction = False
     
     def search_for_nake_pairs(elems):
         """Returns a list of 2-tuples, where every tuple contains the indeces of the same input"""
@@ -62,6 +65,7 @@ def nake_pair(sudoku):
     
     def search_and_ban_in_subset(cells_to_check):
         """Searches all nake-pairs in a subset of cells and bans these numbers from the other elements of subset."""
+        made_deduction = False
         allowed_numbers = []
         for cell in cells_to_check:
             if sudoku.board[cell[0]][cell[1]] != 0:
@@ -76,11 +80,9 @@ def nake_pair(sudoku):
             cells_used = sudoku.allowed[current_naked_cell1[0]][current_naked_cell1[1]].notNones()+sudoku.allowed[current_naked_cell2[0]][current_naked_cell2[1]].notNones()
             for cell in cells_to_check:
                 if cell not in (cells_to_check[pair[0]],cells_to_check[pair[1]]):
-                    made_deduction = True
-                    ban_numbers(sudoku,cell[0],cell[1],deleted_numbers,"nake_pair",cells_used)
+                    made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"nake_pair",cells_used)
+        return made_deduction
 
-    _apply_for_nines(search_and_ban_in_subset)
-    
-    return made_deduction
+    return _apply_for_nines(search_and_ban_in_subset)
 
 

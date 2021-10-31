@@ -123,7 +123,7 @@ class Sudoku:
             return self.allowed[k.position[0]][k.position[1]][k.value]
         elif k.coordtype == "rowpos":
             return self.rowpos[k.position[0]][k.value-1][k.position[1]]
-        elif k.coordtype == "cellpos":
+        elif k.coordtype == "colpos":
             return self.colpos[k.position[0]][k.value-1][k.position[1]]
         elif k.coordtype == "secpos":
             return self.secpos[k.position[0]][k.value-1][k.position[1]]
@@ -135,7 +135,7 @@ class Sudoku:
             self.allowed[k.position[0]][k.position[1]][k.value] = deduction
         elif k.coordtype == "rowpos":
             self.rowpos[k.position[0]][k.value-1][k.position[1]] = deduction
-        elif k.coordtype == "cellpos":
+        elif k.coordtype == "colpos":
             self.colpos[k.position[0]][k.value-1][k.position[1]] = deduction
         elif k.coordtype == "secpos":
             self.secpos[k.position[0]][k.value-1][k.position[1]] = deduction
@@ -328,13 +328,15 @@ class Sudoku:
             with open(file, 'w') as f:
                 for i in range(start, end):
                     f.write(self.proof_to_string(i,isvalue,reference)+'\n')
-    
+
     def ban(self, row, col, value, rule, cells_used):
         '''Ban value from (row, col) using 'rule' applied to 'reasons'.'''
-        self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
-        self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
-        self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
-        self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
+        made_deduction = False
+        made_deduction |= self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
+        return made_deduction
 
 # >>> SOLVERS
 def check_unicity(board_to_solve, verbose=False):

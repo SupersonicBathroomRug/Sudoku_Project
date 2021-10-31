@@ -136,7 +136,7 @@ class Consequence:
         elif self.rule == 'secpos':
             return 'because this number can only go here in its 3x3 square'
         else:
-            raise 'because [UNDEFINED RULE]'
+            return 'because UNDEFINED RULE'
     
     def __eq__(self, other):
         return (self.__class__ == other.__class__) and \

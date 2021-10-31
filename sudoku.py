@@ -1,7 +1,7 @@
 # ==========================================
 #       SUDOKU MANAGEMENT & SOLVING
 # ==========================================
-from algorithms import nake_pair, only_one_value, only_this_cell
+from deduction_rules import nake_pair, only_one_value, only_this_cell
 from boardio import *
 from tracker import *
 from itertools import product

@@ -74,6 +74,10 @@ class Consequence:
             return 'because this number can only go here in its column'
         elif self.rule == 'secpos':
             return 'because this number can only go here in its 3x3 square'
+        elif self.rule == 'nake_pair':
+            return 'because of nake_pair' # TODO
+        elif self.rule == 'hidden_pair':
+            return 'because of hidden_pair' # TODO
         else:
             return 'because UNDEFINED RULE'
     

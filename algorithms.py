@@ -45,19 +45,11 @@ def nake_pair(sudoku):
     
     def ban_numbers(row,col,numbers,cells_used=""): # TODO
         made_deduction = True
-        #sudoku.print_status()
-        #print("deleted: ", row,col,numbers)
         for number in numbers:
             sudoku.ban(row,col,number,"nake_pair",cells_used)
-    
-    for row in range(9):
-        cells_to_check = [(row,col) for col in range(9)]
-        # nake_pairs = search_for_nake_pairs([tuple(sudoku.allowed[row][col].allowed()) for col in range(9)])
-        # for pair in nake_pairs:
-        #     deleted_numbers = sudoku.allowed[row][pair[0]].allowed()
-        #     for col in range(9):
-        #         if col not in pair:
-        #             ban_numbers(row,col,deleted_numbers)
+
+    def search_and_ban_in_subset(cells_to_check):
+        """Searches all nake-pairs in a subset of cells and bans these numbers from the other elements of subset."""
         allowed_numbers = []
         for cell in cells_to_check:
             if sudoku.board[cell[0]][cell[1]] != 0:
@@ -68,32 +60,20 @@ def nake_pair(sudoku):
         for pair in nake_pairs:
             current_cell = cells_to_check[pair[0]]
             deleted_numbers = sudoku.allowed[current_cell[0]][current_cell[1]].allowed()
-            #print("cells to check:", cells_to_check)
-            #print("nake_pairs",nake_pairs)
-            #print([sudoku.allowed[cell[0]][cell[1]].allowed() for cell in cells_to_check])
-            #print("to delete:", deleted_numbers, "because ", current_cell, cells_to_check[pair[1]])
             for cell in cells_to_check:
                 if cell not in (cells_to_check[pair[0]],cells_to_check[pair[1]]):
                     ban_numbers(cell[0],cell[1],deleted_numbers)
 
+    for row in range(9):
+        cells_to_check = [(row,col) for col in range(9)]
+        search_and_ban_in_subset(cells_to_check)
 
+    for col in range(9):
+        cells_to_check = [(row,col) for row in range(9)]
+        search_and_ban_in_subset(cells_to_check)
 
-    # for col in range(9):
-    #     nake_pairs = search_for_nake_pairs([tuple(sudoku.allowed[row][col].allowed()) for row in range(9)])
-    #     for pair in nake_pairs:
-    #         deleted_numbers = sudoku.allowed[pair[0]][col].allowed()
-    #         for row in range(9):
-    #             if row not in pair:
-    #                 ban_numbers(row,col,deleted_numbers)
-
-    # for sec in range(9):
-    #     cells_to_check = [local_to_global(sec,i,j) for i,j in product(range(3),range(3))]
-    #     nake_pairs = search_for_nake_pairs([tuple(sudoku.allowed[cell[0]][cell[1]].allowed()) for cell in cells_to_check])
-    #     for pair in nake_pairs:
-    #         current_cell = cells_to_check[pair[0]]
-    #         deleted_numbers = sudoku.allowed[current_cell[0]][current_cell[1]].allowed()
-    #         for cell in cells_to_check:
-    #             if cell not in (cells_to_check[pair[0]],cells_to_check[pair[1]]):
-    #                 ban_numbers(cell[0],cell[1],deleted_numbers)
+    for sec in range(9):
+        cells_to_check = [local_to_global(sec,i,j) for i,j in product(range(3),range(3))]
+        search_and_ban_in_subset(cells_to_check)
 
     return made_deduction

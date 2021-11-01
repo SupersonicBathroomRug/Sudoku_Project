@@ -5,15 +5,49 @@
 
 import re
 class ConsoleApp:
+    '''Each instance of this class is a textual input parser, which makes it easy to interpret variable queries, variable setting commands,
+    and function calls. When iterated over (or when .input() is called), it requests input from stdin (with a custom prompt), and returns 
+    the parsed information, an action, rname, data tuple. 
+    'action' tells what type of action did the user make: 'get_var' for a variable query, 'set_var' for a variable setting command, 'func' for
+        a function call, 'fail_func' for an improperly formatted function call, 'fail_var' for an improperly formatted command regarding a
+        variable, and 'nonsense' if the input could not be interpreted
+    'rname' is the name of the variable/command that 'action' refers to
+    'data' is additional data: None if not applicable, the input string if 'fail_...' occured, the extracted string representation of the
+        variable on 'set_var', and the inputs of the function in case of 'func' in a dictionary
+    For more information on these, see ConsoleApp.parse()'s docstring.
+    The class uses regexes heavily. The 'r'names of variables/functions are actually regexes matching the appropriate names, and regexes
+    determine the input format of function variables and 'set_var' actions. These make the input formats of the functions more flexible, and
+    rnames serve as the identifiers of variables/functions later on. Some common input-formatting-regexes are provided in match_patterns, and
+    their respective converter functions are available as static functions.
+    'help' and 'exit' functions are already defined, and work properly.
+    Class variables:
+    match_patterns: dict(str->str)
+        Some common regex strings that match usual input: booleans and text for example.
+    _kwarg_pattern: compiled regex
+        Matches a single keyword argument, and extracts the name and input from it. For internal use.
+    _kwargs_pattern: compiled regex
+        Matches the **kwargs part of a function call. For internal use.'''
     match_patterns = {'bool': r'(?:true|True|TRUE|false|False|FALSE)',
     'OnOff': r'(?:on|On|ON|off|Off|OFF)',
     'BoolOnOff': r'(?:true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF)',
     'text': r''''.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*"'''}
-    kwarg_pattern = re.compile(r'''\s+(?P<name>\w+)=(?:(?P<v1>[^'"]\S*)|(?P<quote>['"])(?P<v2>(?:(?!(?P=quote)|\\).|\\(?P=quote))+)(?P=quote))[,;]?''')
-    kwargs_pattern = re.compile(r'''(?:\s+\w+=(?:[^'"]\S*|(?P<quote>['"])(?:(?!(?P=quote)).|\\(?P=quote))+(?P=quote))[,;]?)*\s*$''')
+    _kwarg_pattern = re.compile(r'''\s+(?P<name>\w+)=(?:(?P<v1>[^'"]\S*)|(?P<quote>['"])(?P<v2>(?:(?!(?P=quote)|\\).|\\(?P=quote))+)(?P=quote))[,;]?''')
+    _kwargs_pattern = re.compile(r'''(?:\s+\w+=(?:[^'"]\S*|(?P<quote>['"])(?:(?!(?P=quote)).|\\(?P=quote))+(?P=quote))[,;]?)*\s*$''')
 
     def __init__(self, cursor='> ', reply_to_nonsense='', help_cmd='help', exit_cmd=r'quit|exit', 
         description=None, welcome_text="<Type 'help' for help.>"):
+        '''cursor: str
+            String displayed in the input prompt.
+        reply_to_nonsense: str
+            What will be printed, when the input is not a recognised command. No newline will be added at the end.
+        help_cmd: str (regex)
+            rname of the help command. If None, the built-in help will be disabled.
+        exit_cmd: str (regex)
+            rname of the exit command. If None, the built-in exit function will be disabled.
+        description: str or None
+            A short description of what this interactive app does. This will be printed at the beginning of 'help' calls.
+        welcome_text: str
+            This will be printed before the first input request.'''
         self.vars = []
         self.funcs = []
         self.cursor = cursor
@@ -38,7 +72,7 @@ class ConsoleApp:
             set the variable.'''
         self.vars.append({'rname': rname,
             'variable_pattern': variable_pattern,
-            'description': description,
+            'description': re.sub(r'\n',r'\n\t',description),
             'name_pattern': re.compile(rname),
             'get_pattern': re.compile(rname+r'\s*'),
             'set_pattern': re.compile(rname+r'(?:\s*=\s*|\s+?)('+variable_pattern+')\s*')})
@@ -61,7 +95,7 @@ class ConsoleApp:
             'signature': signature, 
             'has_args': has_args, 
             'has_kwargs': has_kwargs, 
-            'description': description,
+            'description': re.sub(r'\n',r'\n\t',description),
             'flags': flags,
             'name_pattern': re.compile(rname),
             'pattern_args': re.compile(rname+\
@@ -96,7 +130,9 @@ class ConsoleApp:
                 '*args': [additional_arg_0, additional_arg_1, ...],
                 '**kwargs': {name_0: str, name_1: str, ...}]}
         If the input is improperly formatted, it will print an error, and return:
-            'fail_func', rname, input_string'''
+            'fail_func', rname, input_string
+        If the input doesn't match any of the variables/functions, it will return:
+            'nonsense', None, None'''
         # Match variables
         for v in self.vars:
             if v["name_pattern"].match(string) is not None:
@@ -131,10 +167,10 @@ class ConsoleApp:
                     string = f['pattern_args'].sub('',string,count=1)
                     # get kwargs:
                     if f['has_kwargs']:
-                        kwstring = ConsoleApp.kwargs_pattern.search(string)
+                        kwstring = ConsoleApp._kwargs_pattern.search(string)
                         ret['kwargs'] = {m.group('name'): m.group('v1') if m.group('v1') is not None else m.group('v2') 
-                            for m in ConsoleApp.kwarg_pattern.finditer(kwstring.group(0))}
-                        string = ConsoleApp.kwargs_pattern.sub('',string,count=1)
+                            for m in ConsoleApp._kwarg_pattern.finditer(kwstring.group(0))}
+                        string = ConsoleApp._kwargs_pattern.sub('',string,count=1)
                     # get args:
                     if f['has_args']:
                         ret['args'] = string.split()
@@ -197,6 +233,21 @@ class ConsoleApp:
                     if f['name_pattern'].fullmatch(a):
                         print(f'{self.short_func_signature(f)}: function')
                         print(f"\t{f['description']}")
+    # UTIL
+    @staticmethod
+    def get_text(quoted_text):
+        '''Returns the text contained in quoted_text, with the quotes and escapes removed.'''
+        return re.sub(r'\\(?P<a>.)','\g<a>',quoted_text)[1:-1]
+    @staticmethod
+    def str_to_bool(s):
+        '''Returns which boolean value this string represents (true,false,on,off).'''
+        if re.match(r'true|True|TRUE|on|On|ON',s) is not None:
+            return True
+        elif re.match(r'false|False|FALSE|off|Off|OFF',s) is not None:
+            return False
+        else:
+            raise ValueError(f'{s} is not a properly formatted boolean!')
+    
 
 def solve_regex(pattern_string):
     '''Return a "typical" string which satisfies the given (not-too-complicated) regex.
@@ -244,7 +295,7 @@ if __name__ == '__main__':
     for action, rname, data in app:
         if action == 'func' and rname == r'[rR]epeat':
             for _ in range(int(data['params'][r'n(?:umber)?'])):
-                print(data['params'][r'text'][1:-1])
+                print(ConsoleApp.get_text(data['params'][r'text']))
         elif action == 'get_var' and rname == r'var(?:iable)?':
             print(v)
         elif action == 'set_var' and rname == r'var(?:iable)?':

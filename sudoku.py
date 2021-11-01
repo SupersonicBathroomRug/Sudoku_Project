@@ -250,7 +250,7 @@ class Sudoku:
                     print("[NOT UNIQUE] This puzzle has multiple solutions. Two of these are:")
                     print_board(sols[0])
                     print_board(sols[1])
-            elif k.startswith("proof "):
+            elif k.startswith("proof"):
                 # Get name of the output file; optional
                 file = re.search(r"""\s-?-?file=(?P<quote>['"])(?P<path>.*?)(?P=quote)""", k) 
                 if file != None:
@@ -266,7 +266,7 @@ class Sudoku:
                     print_reference = True
                     k = re.sub(r'\s-?-?ref(erence)?','',k)
                 # Simplify k:
-                k = re.sub(r'\s-?-?file="(.*?)"','',k)
+                k = re.sub(r"""\s-?-?file=(?P<quote>['"]).*?(?P=quote)""",'',k)
                 k = re.sub(r'[^\d:]+','',k)
                 if k == '':
                     k = ':'

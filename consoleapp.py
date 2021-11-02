@@ -30,7 +30,7 @@ class ConsoleApp:
     match_patterns = {'bool': r'(?:true|True|TRUE|false|False|FALSE)',
     'OnOff': r'(?:on|On|ON|off|Off|OFF)',
     'BoolOnOff': r'(?:true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF)',
-    'text': r''''.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*"'''}
+    'text': r'''[^'"\s]\S*|'.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*"'''}
     _kwarg_pattern = re.compile(r'''\s+(?P<name>\w+)=(?:(?P<v1>[^'"]\S*)|(?P<quote>['"])(?P<v2>(?:(?!(?P=quote)|\\).|\\(?P=quote))+)(?P=quote))[,;]?''')
     _kwargs_pattern = re.compile(r'''(?:\s+\w+=(?:[^'"]\S*|(?P<quote>['"])(?:(?!(?P=quote)).|\\(?P=quote))+(?P=quote))[,;]?)*\s*$''')
 
@@ -235,9 +235,12 @@ class ConsoleApp:
                         print(f"\t{f['description']}")
     # UTIL
     @staticmethod
-    def get_text(quoted_text):
-        '''Returns the text contained in quoted_text, with the quotes and escapes removed.'''
-        return re.sub(r'\\(?P<a>.)','\g<a>',quoted_text)[1:-1]
+    def get_text(s):
+        '''Returns the text contained in s, with the quotes and escapes removed.'''
+        if s[0] in '\'"':
+            s = s[1:-1]
+        s = re.sub(r'\\n','\n',s)
+        return re.sub(r'\\(?P<a>)','\g<a>',s)
     @staticmethod
     def str_to_bool(s):
         '''Returns which boolean value this string represents (true,false,on,off).'''

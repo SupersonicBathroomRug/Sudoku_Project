@@ -14,7 +14,7 @@ import time
 sudoku_app = ConsoleApp(description='INTERACTIVE SUDOKU SOLVER')
 sudoku_app.add_variable(r'k[-_]opt(?:imi[zs]ation)?',ConsoleApp.match_patterns['BoolOnOff'],'Should we minimize k in the solving process?')
 sudoku_app.add_function(r'print',[(r'file',ConsoleApp.match_patterns['text'],"")],r'-?-?r(?:aw)?',r'-?-?a(?:rray)?',r'-?-?s(?:mall)?',description=
-    '''Prints the board to the console (to a file, if a file is specified in a quoted string). Flags:
+    '''Prints the board to the console (to a file, if a file is specified in a string). Flags:
 --raw:   print only the numbers which are filled in, with 0 for empty cells, no superfluous characters
 --array: print the Sudoku.board array in a python array-style
 --small: the sudoku will be pretty printed, but only the filled in values are shown''')
@@ -29,7 +29,7 @@ sudoku_app.add_function(r'ban',[(r'cells',r'(?:\d[,;\s]*\d[,;\s]*)+:'),(r'values
 Note that there must be a separating ':' between 'cells' and 'values'.''')
 sudoku_app.add_function(r'u(?:nique)?|check_unicity',[],description=
     '''Check whether this sudoku has a unique solution. Prints the solution if it is so, or two solutions, if it is not.''')
-sudoku_app.add_function(r'stat(?:istic)?s?',[],description=
+sudoku_app.add_function(r'stat(?:istic)?s?',[(r'file',ConsoleApp.match_patterns['text'],"")],description=
     '''Prints some detailed statistics about the solving process so far, such as total runtime.''')
 sudoku_app.add_function(r'',[],description=
     '''Attempts to solve the sudoku from this state.''')

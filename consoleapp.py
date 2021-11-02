@@ -4,6 +4,7 @@
 # ==============================================================
 
 import re
+from enum import Enum
 class ConsoleApp:
     '''Each instance of this class is a textual input parser, which makes it easy to interpret variable queries, variable setting commands,
     and function calls. When iterated over (or when .input() is called), it requests input from stdin (with a custom prompt), and returns 
@@ -17,22 +18,31 @@ class ConsoleApp:
     For more information on these, see ConsoleApp.parse()'s docstring.
     The class uses regexes heavily. The 'r'names of variables/functions are actually regexes matching the appropriate names, and regexes
     determine the input format of function variables and 'set_var' actions. These make the input formats of the functions more flexible, and
-    rnames serve as the identifiers of variables/functions later on. Some common input-formatting-regexes are provided in match_patterns, and
+    rnames serve as the identifiers of variables/functions later on. Some common input-formatting-regexes are provided in Patterns, and
     their respective converter functions are available as static functions.
     'help' and 'exit' functions are already defined, and work properly.
     Class variables:
-    match_patterns: dict(str->str)
+    Patterns: "enum" of str
         Some common regex strings that match usual input: booleans and text for example.
+    _arg_pattern: compiled regex
+        Matches and extracts a string argument, with a comma possibly at the end.
     _kwarg_pattern: compiled regex
         Matches a single keyword argument, and extracts the name and input from it. For internal use.
     _kwargs_pattern: compiled regex
         Matches the **kwargs part of a function call. For internal use.'''
-    match_patterns = {'bool': r'(?:true|True|TRUE|false|False|FALSE)',
-    'OnOff': r'(?:on|On|ON|off|Off|OFF)',
-    'BoolOnOff': r'(?:true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF)',
-    'text': r'''[^'"\s]\S*|'.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*"'''}
-    _kwarg_pattern = re.compile(r'''\s+(?P<name>\w+)=(?:(?P<v1>[^'"]\S*)|(?P<quote>['"])(?P<v2>(?:(?!(?P=quote)|\\).|\\(?P=quote))+)(?P=quote))[,;]?''')
-    _kwargs_pattern = re.compile(r'''(?:\s+\w+=(?:[^'"]\S*|(?P<quote>['"])(?:(?!(?P=quote)).|\\(?P=quote))+(?P=quote))[,;]?)*\s*$''')
+    class Patterns:
+        '''Contains constant texts which match common patterns.
+        BOOL:      match a boolean variable written as 'true' or 'false' with different capitalizations.
+        ONOFF:     match a boolean variable written as 'on' or 'off' with different capitalizations.
+        BOOLONOFF: match a boolean variable written in any of the two ways above
+        TEXT:      match a text which may be quoted (necessary if it contains whitespace)'''
+        BOOL = r'(?:true|True|TRUE|false|False|FALSE)'
+        ONOFF = r'(?:on|On|ON|off|Off|OFF)'
+        BOOLONOFF = r'''[^'"\s]\S*|'.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*"'''
+        TEXT = r'''[^'"\s]\S*|'.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*"'''
+    _arg_pattern = re.compile(r'''([^'"\s]\S*|'.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*")[,;]{0,1}''')
+    _kwarg_pattern = re.compile(r'''\s+(?P<name>\w+)=(?P<v>[^'"\s]\S*|'.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*")[,;]{0,1}''')
+    _kwargs_pattern = re.compile(r'''(?:\s+\w+=(?:[^'"\s]\S*|'.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*")[,;]{0,1})*\s*$''')
 
     def __init__(self, cursor='> ', reply_to_nonsense='', help_cmd='help', exit_cmd=r'quit|exit', 
         description=None, welcome_text="<Type 'help' for help.>"):
@@ -168,12 +178,12 @@ class ConsoleApp:
                     # get kwargs:
                     if f['has_kwargs']:
                         kwstring = ConsoleApp._kwargs_pattern.search(string)
-                        ret['kwargs'] = {m.group('name'): m.group('v1') if m.group('v1') is not None else m.group('v2') 
+                        ret['kwargs'] = {m.group('name'): ConsoleApp.get_text(m.group('v')) 
                             for m in ConsoleApp._kwarg_pattern.finditer(kwstring.group(0))}
                         string = ConsoleApp._kwargs_pattern.sub('',string,count=1)
                     # get args:
                     if f['has_args']:
-                        ret['args'] = string.split()
+                        ret['args'] = [ConsoleApp.get_text(s) for s in ConsoleApp._arg_pattern.findall(string)]
                         string = ''
                     # error:
                     if string != '':
@@ -239,8 +249,8 @@ class ConsoleApp:
         '''Returns the text contained in s, with the quotes and escapes removed.'''
         if s[0] in '\'"':
             s = s[1:-1]
-        s = re.sub(r'\\n','\n',s)
-        return re.sub(r'\\(?P<a>)','\g<a>',s)
+        s = re.sub(r'(?P<b>(?:^|[^\\])(?:\\\\)*)\\n',r'\g<b>\n',s)
+        return re.sub(r'\\(?P<a>.)',r'\g<a>',s)
     @staticmethod
     def str_to_bool(s):
         '''Returns which boolean value this string represents (true,false,on,off).'''
@@ -291,9 +301,11 @@ def solve_regex(pattern_string):
 
 if __name__ == '__main__':
     app = ConsoleApp(description='SAMPLE CONSOLE APP\nThis app is meant to show how this library operates. After each command, the resulting tuple will be printed.')
-    app.add_function(r'[rR]epeat',[(r'text',ConsoleApp.match_patterns['text']),(r'n(?:umber)?',r'\d+','1')],
+    app.add_function(r'[rR]epeat',[(r'text',ConsoleApp.Patterns.TEXT),(r'n(?:umber)?',r'\d+','1')],
         description="Prints 'text' to the output stream 'number' times.")
     app.add_variable(r'var(?:iable)?','\d+','Generic variable containing a nonnegative integer.')
+    app.add_function(r'dict',[],has_kwargs=True,has_args=True,description='Create a dict from **kwargs and a list from *args, and print these.')
+    print(app.funcs[2]['pattern_args'])
     v = 0
     for action, rname, data in app:
         if action == 'func' and rname == r'[rR]epeat':
@@ -303,4 +315,7 @@ if __name__ == '__main__':
             print(v)
         elif action == 'set_var' and rname == r'var(?:iable)?':
             v = int(data)
+        elif action == 'func' and rname == r'dict':
+            print('**kwargs:',data['kwargs'])
+            print(' *args:  ',data['args'])
         print(f"\n| action: {action}; rname: {rname}; data: {data}")

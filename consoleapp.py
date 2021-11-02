@@ -247,6 +247,8 @@ class ConsoleApp:
     @staticmethod
     def get_text(s):
         '''Returns the text contained in s, with the quotes and escapes removed.'''
+        if len(s) == 0:
+            return s
         if s[0] in '\'"':
             s = s[1:-1]
         s = re.sub(r'(?P<b>(?:^|[^\\])(?:\\\\)*)\\n',r'\g<b>\n',s)

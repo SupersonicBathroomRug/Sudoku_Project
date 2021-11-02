@@ -230,8 +230,25 @@ class Sudoku:
                     print("Solver got stuck at this state:")
                     self.print_status()
             elif action == 'func' and rname == r'print': # Print
-                # TODO: --raw, --small, --array, file
-                self.print_status()
+                file = ConsoleApp.get_text(data['params']['file'])
+                if file != '':
+                    print(f"Printing board to file {file}")
+                print.set_file(file)
+                if data['flags'][r'-?-?r(?:aw)?']:
+                    print_raw_board(self.board)
+                elif data['flags'][r'-?-?a(?:rray)?']:
+                    print_array_board(self.board)
+                elif data['flags'][r'-?-?s(?:mall)?']:
+                    if file == "":
+                        print_board(self.board)
+                    else:
+                        print_small_board(self.board)
+                else:
+                    if file == "":
+                        self.print_status()
+                    else:
+                        builtins.print("ERROR: can't pretty print to a file!")
+                print.reset()
             elif action == 'func' and rname == r'set':
                 r = int(data['params']['row'])
                 c = int(re.sub('[^\d]','',data['params']['col(?:umn)?']))
@@ -264,10 +281,9 @@ class Sudoku:
                     print_board(sols[0])
                     print_board(sols[1])
             elif action == 'func' and rname == 'proof':
-                if data['params']['file'] == '': 
-                    data['params']['file'] = None
-                else:
-                    print(f"Printing output to {data['params']['file']}.")
+                file = ConsoleApp.get_text(data['params']['file'])
+                if file != '':
+                    print(f"Printing output to {file}")
                 # Simplify k:
                 data['params']['slice'] = re.sub(r'[^\d:]','',data['params']['slice'])
                 # Process k into proper slice indicies:
@@ -275,28 +291,24 @@ class Sudoku:
                 start = int(halves[0]) if halves[0] != '' else 0
                 end = int(halves[1]) if halves[1] != '' else len(self.proof)
                 if end > len(self.proof):
-                    print(f"WARNING: specified range too large; proof only has {len(self.proof)} steps so far.")
+                    builtins.print(f"WARNING: specified range too large; proof only has {len(self.proof)} steps so far.")
                 # Execute printing:
-                self.print_proof(data['params']['file'], start, min(end, len(self.proof)),
+                print.set_file(file)
+                self.print_proof(start, min(end, len(self.proof)),
                     isvalue=data['flags'][r'-?-?[Ii](?:s[Vv]alue)?'], 
                     reference=data['flags'][r'-?-?r(?:ef(?:erence)?)?'])
+                print.reset()
             elif action == 'get_var' and rname == r'k[-_]opt(?:imi[zs]ation)?':
                 print(f"k-optimization: {'ON' if self.k_opt else 'OFF'}")
             elif action == 'set_var' and rname == r'k[-_]opt(?:imi[zs]ation)?':
                 self.k_opt = ConsoleApp.str_to_bool(data)
             elif action == 'func' and rname == r'stat(?:istic)?s?':
-                print(f"RUNTIME:                   {self.deduction_time+self.k_opt_time+self.fill_time} s")
-                print(f"| Deduction time:          {self.deduction_time} s")
-                print(f"| k-optimization time:     {self.k_opt_time} s")
-                print(f"| Fill time:               {self.fill_time} s\n")
-                print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}\n")
-                print(f"| Failed solves:           {self.failed_solves}")
-                print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")
-                print(f"| Deus ex sets:            {self.deus_ex_sets}\n")
-                print(f"Proof steps made:          {len(self.proof)}")
-                print(f"| Weak k-approximations:   {sum((1 if (s.approximation or (not s.k_opt)) and s.k>8 else 0 for s in self.proof))}")
-                print(f"| Strong k-approximations: {sum((1 if (s.approximation or (not s.k_opt)) and s.k<=8 else 0 for s in self.proof))}")
-                print(f"| Maximal k:               {0 if len(self.proof)==0 else max((step.k for step in self.proof))}")
+                file = ConsoleApp.get_text(data['params']['file'])
+                if file != '':
+                    print(f"Printing statistics to {file}")
+                print.set_file(file)
+                self.print_stats()
+                print.reset()
                 
     # >>> UTILITY
     def is_unique(self):
@@ -313,16 +325,25 @@ class Sudoku:
         ret += "\n\t".join(self.proof[idx].to_strings(reference,isvalue))
         return ret
 
-    def print_proof(self, file=None, start=0, end=None, isvalue=False, reference=False):
+    def print_proof(self, start=0, end=None, isvalue=False, reference=False):
         '''Prints proof steps from #start to #end (default: 0 and last) to the specified file, or the console if file is None.'''
         if end is None: end = len(self.proof)
-        if file is None:
-            for i in range(start, end):
-                print(self.proof_to_string(i,isvalue,reference))
-        else:
-            with open(file, 'w') as f:
-                for i in range(start, end):
-                    f.write(self.proof_to_string(i,isvalue,reference)+'\n')
+        for i in range(start, end):
+            print(self.proof_to_string(i,isvalue,reference))
+
+    def print_stats(self):
+        print(f"RUNTIME:                   {self.deduction_time+self.k_opt_time+self.fill_time} s")
+        print(f"| Deduction time:          {self.deduction_time} s")
+        print(f"| k-optimization time:     {self.k_opt_time} s")
+        print(f"| Fill time:               {self.fill_time} s\n")
+        print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}\n")
+        print(f"| Failed solves:           {self.failed_solves}")
+        print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")
+        print(f"| Deus ex sets:            {self.deus_ex_sets}\n")
+        print(f"Proof steps made:          {len(self.proof)}")
+        print(f"| Weak k-approximations:   {sum((1 if (s.approximation or (not s.k_opt)) and s.k>8 else 0 for s in self.proof))}")
+        print(f"| Strong k-approximations: {sum((1 if (s.approximation or (not s.k_opt)) and s.k<=8 else 0 for s in self.proof))}")
+        print(f"| Maximal k:               {0 if len(self.proof)==0 else max((step.k for step in self.proof))}")
     
     def ban(self, row, col, value, rule, cells_used):
         '''Ban value from (row, col) using 'rule' applied to 'reasons'.'''

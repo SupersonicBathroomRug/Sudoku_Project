@@ -31,6 +31,9 @@ sudoku_app.add_function(r'u(?:nique)?|check_unicity',[],description=
     '''Check whether this sudoku has a unique solution. Prints the solution if it is so, or two solutions, if it is not.''')
 sudoku_app.add_function(r'stat(?:istic)?s?',[(r'file',ConsoleApp.Patterns.TEXT,"")],description=
     '''Prints some detailed statistics about the solving process so far, such as total runtime.''')
+sudoku_app.add_function(r'export',[(r'file',ConsoleApp.Patterns.TEXT)],
+    r'-?-?n(?:ostats?)?',r'-?-?r(?:aw)?',r'-?-?a(?:rray)?',r'-?-?r(?:ef(?:erence)?)?',r'-?-?[Ii](?:s[Vv]alue)?',description=
+    '''Prints information about this session to a file. If --nostats is enabled, statistics will not be printed.''')
 sudoku_app.add_function(r'',[],description=
     '''Attempts to solve the sudoku from this state.''')
 
@@ -70,6 +73,7 @@ class Sudoku:
         self.deus_ex_sets = 0
         for row, col, val in tuples:
             self[row, col] = val
+        self.starting_board = [[self.board[i][j] for j in range(9)] for i in range(9)]
     
     def __setitem__(self, key, val):
         '''Fill in the given cell with the given value.
@@ -308,6 +312,30 @@ class Sudoku:
                     print(f"Printing statistics to {file}")
                 print.set_file(file)
                 self.print_stats()
+                print.reset()
+            elif action == 'func' and rname == r'export':
+                file = ConsoleApp.get_text(data['params']['file'])
+                print(f"Exporting session data to {file}")
+                print.set_file(file)
+                print("STARTING BOARD:")
+                if data['flags'][r'-?-?r(?:aw)?']:
+                    print_raw_board(self.starting_board)
+                elif data['flags'][r'-?-?a(?:rray)?']:
+                    print_array_board(self.starting_board)
+                else:
+                    print_small_board(self.starting_board)
+                print("FINAL BOARD:")
+                if data['flags'][r'-?-?r(?:aw)?']:
+                    print_raw_board(self.board)
+                elif data['flags'][r'-?-?a(?:rray)?']:
+                    print_array_board(self.board)
+                else:
+                    print_small_board(self.board)
+                print("PROOF:")
+                self.print_proof(isvalue=data['flags'][r'-?-?[Ii](?:s[Vv]alue)?'], reference=data['flags'][r'-?-?r(?:ef(?:erence)?)?'])
+                if not data['flags'][r'-?-?n(?:ostats?)?']:
+                    print("STATISTICS:")
+                    self.print_stats()
                 print.reset()
                 
     # >>> UTILITY

@@ -198,73 +198,42 @@ class ProofStep:
         '''Initiates a `ProofStep` instance wrapping deduction. Accepts a set of deductions, and chooses one to use.\n
         If `k_opt` is `True`, it attempt to fill the cell which requires the least amount of knowledge. Otherwise it fills the
         first cell. In that case, if `choose_resolution` is `True`, deduction will be converted to the standard format, 
-        stripping away redundant Consequences recursively; the resulting proof structure will be acyclic.'''
+        stripping away redundant Consequences recursively; the resulting proof structure will be acyclic.
+        `chosen_reasons`: Deduction -> Consequence (which reasoning did we choose?)'''
         self.proof_order = {}
         self.proof = []
         self.k = 0
-        self.k_opt = k_opt
-        if True: # TODO: k_opt == False
-            self.approximation = True
-            deduction = next(iter(deductions))
-            ProofStep._remove_fulfilled_deductions(deductions, deduction)
-            self.position = deduction.result.get_pos()
-            self.value = deduction.result.value
-            # REMOVE CYCLES AND REDUNDANCY
-            if choose_resolution:
-                stack = set() # is this step currently in the recursion stack?
-                resolved = set() # has a resolution been found for this step?
-                def strip_redundancy(step):
-                    '''Strip redundant `Consequence`s. Return `True` if a resolution is found that doesn't use step's consequences,
-                    `False` otherwise.'''
-                    if step in stack:
-                        return False
-                    elif step in resolved:
-                        return True
-                    elif isinstance(step, Knowledge):
-                        return True
-                    stack.add(step)
-                    # isinstance(step, Deduction)
-                    chosen_consequence = None
-                    for cons in step.consequence_of: # iterate over all possible reasonings...
-                        for info in cons.of: # if all the predicates can be properly resolved..
-                            if not strip_redundancy(info):
-                                break
-                        else:
-                            chosen_consequence = cons
-                            break
-                    else:
-                        stack.remove(step)
-                        return False
-                    step.consequence_of = [chosen_consequence] # TODO: should not modify tree!!!
-                    resolved.add(step)
-                    stack.remove(step)
-                    return True
-                strip_redundancy(deduction)
-            # CREATE TOPOLOGICAL ORDERING OF PROOF
-            def topological_ordering(step):
-                '''Find a topological ordering of the proof, and store it in `self.proof`'''
-                if step in self.proof_order:
-                    return
-                elif isinstance(step, Knowledge): # isinstance(step, IsValue)
-                    self.proof_order[step] = len(self.proof)
-                    self.proof.append(step)
-                    self.k += 1
-                    return
-                # isinstance(step, Deduction)
-                for info in step.consequence_of[0].of:
-                    topological_ordering(info)
-                self.proof_order[step] = len(self.proof)
-                self.proof.append(step)
-            topological_ordering(deduction)
-        else: # k_opt == True
-            self.approximation = False
-            # ^this may be set to True later on!
+        self.chosen_reasons = {}
+        self.approximation = False
+        # ^this may be set to True later on!
+        chosen_deduction = None
+        # ====== SKETCH ======
+        #self.approximation = False
+        #if k_opt:
+        #    do_the_thingy
+        #    if prob.solve() == 1:
+        #        decode, construct chosen_reasons
+        #        chosen_deduction = ...
+        #    else:
+        #        k_opt = False
+        #if not k_opt: # not k_opt, or k_opt failed miserably
+        #    self.approximation = True
+        #    choose_resolution_brute_force
+        #    chosen_deduction = deductions[0]
+        ## READY FOR CONVERSION
+        #def topological_ordering(step):
+        #   thingy
+        #topological_ordering(chosen_deduction)
+        #ProofStep.remove_fulfilled_deductions(...)
+        #self.position, self.value
+        if k_opt:
+            allowed_paths = {} # Deduction -> list(Consequence): which Consequences may be used without causing cycles?
             stack = set()
             resolved = set() # recursion invariant: a resolved step may only depend on resolved steps
             # REMOVE CYCLES
             def make_acyclic(step):
-                '''Ensure that no cycles may be if we use `step` or anything it uses.\\
-                In short, remove `Consequence`s that lead to cyclic reasoning.'''
+                '''Calculate `allowed_paths`, so for each `Deduction` check which `Consequence`s don't lead to cycles.\\
+                Return `True` if `step` can be resolved.'''
                 if step in stack:
                     return False
                 elif step in resolved:
@@ -272,14 +241,15 @@ class ProofStep:
                 elif isinstance(step, Knowledge):
                     return True
                 stack.add(step)
-                to_remove = set
+                possibles = []
                 for cons in step.consequence_of: # iterate over all possible reasonings...
                     for info in cons.of: # if all predicates can be peacefully resolved:
                         if not make_acyclic(info):
-                            to_remove.add(cons)
                             self.approximation = True
                             break
-                step.consequence_of = [a for a in step.consequence_of if a not in to_remove]
+                    else:
+                        possibles.append(cons)
+                allowed_paths[step] = possibles
                 stack.remove(step)
                 if len(step.consequence_of) == 0:
                     return False
@@ -307,7 +277,7 @@ class ProofStep:
                     return ipvar
                 # isinstance(step, Deduction)
                 cipvars = {}
-                for cons in step.consequence_of:
+                for cons in allowed_paths[step]:
                     cipvar = pl.LpVariable(name=f'o_{id(cons)}',cat=pl.LpBinary)
                     cipvars[cons] = cipvar
                     # > if we want to use a reasoning, we have to fulfill all its criteria
@@ -322,39 +292,78 @@ class ProofStep:
             # > optimize for minimal k
             prob += pl.lpSum((v for v in isvalue_used))
             # SOLVE IP PROBLEM
-            if prob.solve() != 1: # if solve failed: revert to bruteforce
-                pass
-            # CONVERT SOLUTION TO PROOFSTEP
-            self.k = int(pl.value(prob.objective))
-            def choose_resolution_by_IP(step):
-                '''Convert the IP solution data to a resolution of step. Similar to `topological_ordering()`'''
-                if step in self.proof_order:
-                    return
-                elif isinstance(step, Knowledge):
-                    self.proof_order[step] = len(self.proof)
-                    self.proof.append(step)
-                    return
-                # isinstance(step, Deduction)
-                chosen_cons = None
-                for cons in step.consequence_of:
-                    if pl.value(reasons_chosen[step][cons]) == 1.0: # if this is the chosen reasoning for this Deduction
-                        for info in cons.of:
-                            choose_resolution_by_IP(info)
-                        self.proof_order[step] = len(self.proof)
-                        self.proof.append(step)
-                        chosen_cons = cons
+            if prob.solve() == 1: # if solve failed: revert to bruteforce
+                # CONVERT SOLUTION TO PROOFSTEP
+                def choose_resolution_by_IP(step):
+                    '''Convert the IP solution data to a resolution of step'''
+                    if not isinstance(step, Deduction):
+                        return
+                    elif step in self.chosen_reasons:
+                        return
+                    for cons in allowed_paths[step]:
+                        if pl.value(reasons_chosen[step][cons]) == 1.0: # if this is the chosen reasoning for this Deduction
+                            for info in cons.of:
+                                choose_resolution_by_IP(info)
+                            self.chosen_reasons[step] = cons
+                for ded in deductions:
+                    if pl.value(knowledge_used[ded]) == 1.0:
+                        choose_resolution_by_IP(ded)
+                        chosen_deduction = ded
                         break
-                step.consequence_of = [cons]
-            chosen_deduction = None
-            for ded in deductions:
-                if pl.value(knowledge_used[ded]) == 1.0:
-                    choose_resolution(ded)
-                    chosen_deduction = ded
-                    break
-            ProofStep._remove_fulfilled_deductions(deductions, chosen_deduction)
-            self.position = chosen_deduction.result.get_pos()
-            self.value = chosen_deduction.result.value()
-                
+            else:
+                print('ERROR: IP solver failed.')
+                k_opt = False
+        if not k_opt: # k_opt == False, or k-optimization failed miserably
+            self.approximation = True
+            chosen_deduction = next(iter(deductions))
+            # REMOVE CYCLES AND REDUNDANCY
+            stack = set() # is this step currently in the recursion stack?
+            resolved = set() # has a resolution been found for this step?
+            def choose_resolution_greedy(step):
+                '''Strip redundant `Consequence`s. Return `True` if a resolution is found that doesn't use step's consequences,
+                `False` otherwise.'''
+                if step in stack:
+                    return False
+                elif step in resolved:
+                    return True
+                elif isinstance(step, Knowledge):
+                    return True
+                stack.add(step)
+                # isinstance(step, Deduction)
+                for cons in step.consequence_of: # iterate over all possible reasonings...
+                    for info in cons.of: # if all the predicates can be properly resolved...
+                        if not choose_resolution_greedy(info):
+                            break
+                    else:
+                        self.chosen_reasons[step] = cons
+                        break
+                else:
+                    stack.remove(step)
+                    return False
+                resolved.add(step)
+                stack.remove(step)
+                return True
+            choose_resolution_greedy(chosen_deduction)
+        # CREATE TOPOLOGICAL ORDERING OF PROOF
+        def topological_ordering(step):
+            '''Find a topological ordering of the proof, and store it in `self.proof`'''
+            if step in self.proof_order:
+                return
+            elif isinstance(step, Knowledge): # isinstance(step, IsValue)
+                self.proof_order[step] = len(self.proof)
+                self.proof.append(step)
+                self.k += 1
+                return
+            # isinstance(step, Deduction)
+            for info in self.chosen_reasons[step].of:
+                topological_ordering(info)
+            self.proof_order[step] = len(self.proof)
+            self.proof.append(step)
+        topological_ordering(chosen_deduction) # top. order
+        ProofStep._remove_fulfilled_deductions(deductions, chosen_deduction) # remove redundant goals
+        self.position = chosen_deduction.result.get_pos() # save core info
+        self.value = chosen_deduction.result.value
+        self.k_opt = k_opt
     
     def to_strings(self, reference=False, include_isvalue=False):
         '''Return a list of strings, each representing a step of this proof.'''

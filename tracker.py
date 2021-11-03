@@ -4,6 +4,7 @@
 #               PRETTY PRINTING PROOFS
 # =======================================================
 
+import pulp as pl # type: ignore
 # >>> HELPERS
 def cell_section(i,j):
     '''the 0-9 id of the 3×3 section containing this cell given in the 9×9 grid'''
@@ -234,7 +235,7 @@ class ProofStep:
                     else:
                         stack.remove(step)
                         return False
-                    step.consequence_of = [chosen_consequence]
+                    step.consequence_of = [chosen_consequence] # TODO: should not modify tree!!!
                     resolved.add(step)
                     stack.remove(step)
                     return True
@@ -258,6 +259,102 @@ class ProofStep:
         else: # k_opt == True
             self.approximation = False
             # ^this may be set to True later on!
+            stack = set()
+            resolved = set() # recursion invariant: a resolved step may only depend on resolved steps
+            # REMOVE CYCLES
+            def make_acyclic(step):
+                '''Ensure that no cycles may be if we use `step` or anything it uses.\\
+                In short, remove `Consequence`s that lead to cyclic reasoning.'''
+                if step in stack:
+                    return False
+                elif step in resolved:
+                    return True
+                elif isinstance(step, Knowledge):
+                    return True
+                stack.add(step)
+                to_remove = set
+                for cons in step.consequence_of: # iterate over all possible reasonings...
+                    for info in cons.of: # if all predicates can be peacefully resolved:
+                        if not make_acyclic(info):
+                            to_remove.add(cons)
+                            self.approximation = True
+                            break
+                step.consequence_of = [a for a in step.consequence_of if a not in to_remove]
+                stack.remove(step)
+                if len(step.consequence_of) == 0:
+                    return False
+                resolved.add(step)
+                return True
+            for ded in deductions:
+                make_acyclic(ded)
+            # CREATE IP PROBLEM
+            prob = pl.LpProblem(name='k-optimize') # LP problem
+            isvalue_used = [] # list of LpBinary, containing all LpBinary-s corresponding to IsValue instances
+            # final_deductions = {} # filler_deduction -> LpBinary; see below
+            knowledge_used = {} # Knowledge/Deduction -> LpBinary dict, collecting all variables describing knowledge usage
+            reasons_chosen = {} # Deduction -> {Consequence -> LpBinary}
+            # CREATE CONSTRAINTS & VARIABLES
+            def add_to_lp_problem(step):
+                '''Recursively add this `step` and everything it depends on to the LP problem. This means create a variable for it
+                and save its constraints. Returns with `knowledge_used[step]` for convenience reasons.'''
+                if step in knowledge_used:
+                    return knowledge_used[step]
+                ipvar = pl.LpVariable(name=f'd_{id(step)}',cat=pl.LpBinary)
+                knowledge_used[step] = ipvar # save
+                if isinstance(step, IsValue):
+                    isvalue_used.append(ipvar)
+                if isinstance(step, Knowledge):
+                    return ipvar
+                # isinstance(step, Deduction)
+                cipvars = {}
+                for cons in step.consequence_of:
+                    cipvar = pl.LpVariable(name=f'o_{id(cons)}',cat=pl.LpBinary)
+                    cipvars[cons] = cipvar
+                    # > if we want to use a reasoning, we have to fulfill all its criteria
+                    prob += (cipvar*(-len(cons.of)) + pl.lpSum((add_to_lp_problem(info) for info in cons.of)) >= 0)
+                reasons_chosen[step] = cipvars # save these variables too for later use
+                # > if we want to use this deduction, we have to use at least 1 of its reasonings
+                prob += (ipvar*(-1) + pl.lpSum((v for v in cipvars.values())) >= 0)
+                return ipvar
+            final_deductions = {ded: add_to_lp_problem(ded) for ded in deductions}
+            # > fill at least 1 cell
+            prob += (pl.lpSum((v for v in final_deductions.values())) >= 1)
+            # > optimize for minimal k
+            prob += pl.lpSum((v for v in isvalue_used))
+            # SOLVE IP PROBLEM
+            if prob.solve() != 1: # if solve failed: revert to bruteforce
+                pass
+            # CONVERT SOLUTION TO PROOFSTEP
+            self.k = int(pl.value(prob.objective))
+            def choose_resolution_by_IP(step):
+                '''Convert the IP solution data to a resolution of step. Similar to `topological_ordering()`'''
+                if step in self.proof_order:
+                    return
+                elif isinstance(step, Knowledge):
+                    self.proof_order[step] = len(self.proof)
+                    self.proof.append(step)
+                    return
+                # isinstance(step, Deduction)
+                chosen_cons = None
+                for cons in step.consequence_of:
+                    if pl.value(reasons_chosen[step][cons]) == 1.0: # if this is the chosen reasoning for this Deduction
+                        for info in cons.of:
+                            choose_resolution_by_IP(info)
+                        self.proof_order[step] = len(self.proof)
+                        self.proof.append(step)
+                        chosen_cons = cons
+                        break
+                step.consequence_of = [cons]
+            chosen_deduction = None
+            for ded in deductions:
+                if pl.value(knowledge_used[ded]) == 1.0:
+                    choose_resolution(ded)
+                    chosen_deduction = ded
+                    break
+            ProofStep._remove_fulfilled_deductions(deductions, chosen_deduction)
+            self.position = chosen_deduction.result.get_pos()
+            self.value = chosen_deduction.result.value()
+                
     
     def to_strings(self, reference=False, include_isvalue=False):
         '''Return a list of strings, each representing a step of this proof.'''

@@ -15,11 +15,11 @@ class Sudoku:
 
     # >>> DATA MANIPULATION
     def __init__(self, board=None, tuples=None, k_opt=True):
-        '''Initialize a sudoku either with:
-        board: list of lists
-            A matrix representation of the sudoku table, with 0s in empty cells.
-        tuples: Iterable of (row, column, value) tuples
-            An Iterable containing an entry for each filled cell of the board.'''
+        '''Initialize a sudoku either with:\n
+        `board`: `list` of `list`s
+        >   A matrix representation of the sudoku table, with 0s in empty cells.\n
+        `tuples`: `Iterable` of `(row, column, value)` tuples
+        >   An `Iterable` containing an entry for each filled cell of the board.'''
         if tuples is not None:
             pass
         elif board is not None:
@@ -48,7 +48,7 @@ class Sudoku:
             self[row, col] = val
     
     def __setitem__(self, key, val):
-        '''Fill in the given cell with the given value.
+        '''Fill in the given cell with the given value.\\
         Take note of the new restricions this causes, and stop tracking this value & position further.'''
         if val == 0:
             raise NotImplementedError("Cannot assign 0 to any cell!")
@@ -94,8 +94,8 @@ class Sudoku:
     
     # >>> STORING DEDUCTIONS
     def make_deduction(self, knowledge, rule, reasons=None):
-        '''Store a deduction which yields 'knowledge' applying 'rule' to Knowlegde instances 'reasons'.
-        Return True if this is a new deduction.'''
+        '''Store a deduction which yields `knowledge` applying `rule` to `Knowlegde` instances `reasons`.\\
+        Return `True` if this is a new deduction.'''
         p = knowledge.get_pos()
         if self.board[p[0]][p[1]] != 0:
             return False
@@ -117,8 +117,8 @@ class Sudoku:
                 return True
     
     def _get_knowledge(self, k):
-        '''Given a Knowledge instance 'k', returns the data stored at its position, corresponding to its value.
-        This means it either returns a Deduction instance (if this knowledge has been already acquired), and None otherwise.'''
+        '''Given a Knowledge instance `k`, returns the data stored at its position, corresponding to its value.\\
+        This means it either returns a `Deduction` instance (if this knowledge has been already acquired), and `None` otherwise.'''
         if k.coordtype == "cell":
             return self.allowed[k.position[0]][k.position[1]][k.value]
         elif k.coordtype == "rowpos":
@@ -141,10 +141,10 @@ class Sudoku:
             self.secpos[k.position[0]][k.value-1][k.position[1]] = deduction
     
     # >>> SOLVERS
-    def solve(self): # TODO: make this more interactive AND/OR make this terminate more nicely
+    def solve(self): # TODO: shortcut in case of k_opt==False?
         '''Attempts to solve this sudoku only using a fixed set of deductions. This set currently is:
-        - only 1 value can be written to (i,j), as all others are present in this row+column+section
-        - v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them'''
+        - only 1 value can be written to `(i,j)`, as all others are present in this row+column+section
+        - `v` can be written only to this cell in this row/column/section, as all other cells are filled/`v` cannot be written in them'''
         timestamp = time.time()
         while self.missing > 0:
             made_deduction = True
@@ -194,7 +194,7 @@ class Sudoku:
         return True
 
     def interactive_solve(self):
-        '''Interactive solver tool. Type 'h' or 'help' for help.'''
+        '''Interactive solver tool. Type `'h'` or `'help'` for help.'''
         print("   INTERACTIVE SOLVER STARTED  ")
         print_board(self.board)
         while True:
@@ -326,7 +326,7 @@ class Sudoku:
                 
     # >>> UTILITY
     def is_unique(self):
-        '''Checks whether this sudoku has a unique solution. See check_unicity().'''
+        '''Checks whether this sudoku has a unique solution. See `check_unicity()`.'''
         return check_unicity(self.board, False)
     
     def print_status(self):
@@ -340,7 +340,7 @@ class Sudoku:
         return ret
 
     def print_proof(self, file=None, start=0, end=None, isvalue=False, reference=False):
-        '''Prints proof steps from #start to #end (default: 0 and last) to the specified file, or the console if file is None.'''
+        '''Prints proof steps from `#start` to `#end` (default: 0 and last) to the specified file, or the console if `file` is `None`.'''
         if end is None: end = len(self.proof)
         if file is None:
             for i in range(start, end):
@@ -351,7 +351,7 @@ class Sudoku:
                     f.write(self.proof_to_string(i,isvalue,reference)+'\n')
     
     def ban(self, row, col, value, rule, cells_used):
-        '''Ban value from (row, col) using 'rule' applied to 'reasons'.'''
+        '''Ban `value` from `(row, col)` using `rule` (`str`  identifier) applied to `cells_used` (`list` of `Knowledge`/`Deduction` instances).'''
         self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
         self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
         self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
@@ -359,9 +359,10 @@ class Sudoku:
 
 # >>> SOLVERS
 def check_unicity(board_to_solve, verbose=False):
-    '''Attempts to decide whether this sudoku has a unique solution with a DFS search.
-    Returns (True, [unique_solution]), if the solution is unique,
-            [solution_no1, solution_no2] if there are at least two solutions.'''
+    '''Attempts to decide whether this sudoku has a unique solution with a DFS search.\\
+    Returns 
+    -   `(True, [unique_solution])`, if the solution is unique,
+    -   `[solution_no1, solution_no2]` if there are at least two solutions.'''
     b=np.array(board_to_solve)
     sols=[]
     
@@ -371,7 +372,7 @@ def check_unicity(board_to_solve, verbose=False):
         return (x//9,x%9)
 
     def dfs(row,col):
-        '''Attempts to fill this cell and then recursively all cells after this.
+        '''Attempts to fill this cell and then recursively all cells after this.\\
         Returns True if at least 2 solutions have been found during the search, and False before that.'''
         if row==9: # if we filled the entire grid, save this as a solution, and possibly terminate the search.
             sols.append(b.copy())

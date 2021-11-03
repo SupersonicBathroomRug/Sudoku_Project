@@ -12,8 +12,8 @@ headers = {'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit
 
 # >>> MANAGING INPUT FROM TEXT/LISTS
 def init_tuples_from_text(s):
-    '''Given a text with 9 rows, each containing 9 characters, create a list of (row, col, value) tuples for the characters in the text
-    which are in {1,2,3,4,5,6,7,8,9}.'''
+    '''Given a text with 9 rows, each containing 9 characters, create a list of `(row, col, value)` tuples for the characters in the text
+    which are in `{1,2,3,4,5,6,7,8,9}`.'''
     nums=set(map(str,range(1,10)))
     ret=[]
     rows = re.findall(r'(\S{9})(?!(?=\S))', s) # finds all occurences of exactly-9-non-whitespace characters
@@ -39,8 +39,8 @@ def gridtext_to_arraytext(s):
 
 # >>> ADVANCED
 def edit_sudoku(board=None):
-    '''Edit a sudoku board. Navigate the cells with wasd, delete with 0 or x, fill a cell by typing the desired number.
-    Quit with 'q', get this help with 'h'.'''
+    '''Edit a sudoku board. Navigate the cells with `wasd`, delete with 0 or `x`, fill a cell by typing the desired number.\\
+    Quit with `q`, get this help with `h`.'''
     from Getch import getch
     if board is None: board = [[0 for _ in range(9)] for _ in range(9)]
     selected = [4, 4]
@@ -67,7 +67,7 @@ Quit with 'q', get this help with 'h'.''')
             return board
 
 def fetch_puzzle(url):
-    '''Downloads a puzzle from a given url, and converts it into a list of lists. Currently only supports 
+    '''Downloads a puzzle from a given `url`, and converts it into a `list` of `list`s. Currently only supports 
     puzzles on http://nine.websudoku.com/.'''
     if url.startswith('https://nine.websudoku.com/'):
         results = requests.get(url, headers=headers)

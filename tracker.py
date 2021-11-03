@@ -68,12 +68,15 @@ class diclen:
 
 # >>> KNOWLEDGE CLASSES
 class Knowledge:
-    '''Contains some information about that can help solve the sudoku. Stores a value and a position, which signify different things
-    in each subclass. All derived classes must implement a __str__ method.'''
+    '''Contains some information about a cell that can help solve the sudoku. Stores a `value` and a `position`, which signify different things
+    in each subclass. All derived classes must implement a `__str__` method.'''
     def __init__(self, position, value, coordtype="cell"):
-        '''Initiates a Knowledge instance. 'position' tells which cell this knowledge talks about. It can be given in multiple coordinate
-        systems. "cell" means (0-8,0-8) tuple, "rowpos" means (row_idx, col_idx) tuple, "colpos" means (col_idx, row_idx) tuple,
-        "secpos" means (sec_idx, (0-3,0-3)) tuple.'''
+        '''Initiates a `Knowledge` instance. `position` tells which cell this knowledge talks about. It can be given in multiple coordinate
+        systems. 
+        -   `"cell"` means `(0-8,0-8)` tuple,
+        -   `"rowpos"` means `(row_idx, col_idx)` tuple,
+        -   `"colpos"` means `(col_idx, row_idx)` tuple,
+        -   `"secpos"` means `(sec_idx, (0-3,0-3))` tuple.'''
         self.position = position
         self.value = value
         self.coordtype = coordtype
@@ -117,9 +120,9 @@ class CantBe(Knowledge):
 class Consequence:
     '''Stores the reasons for a given deduction. This is a separate class, because a given deduction may have multiple proofs.'''
     def __init__(self, of, rule, details=None):
-        '''Initiates a Consequence object. 'rule' is a string id of the rule being applied. 'of' is a list of 
-        Knowledge or Deduction instances, which imply the result. 'details' may store additional info about the deduction
-        (such as which are the two cells we use <naked pairs> for).'''
+        '''Initiates a `Consequence` object. `rule` is a string id of the rule being applied. `of` is a `list` of 
+        `Knowledge` or `Deduction` instances, which imply the result. `details` may store additional info about the deduction
+        (such as which are the two cells we use `<naked pairs>` for).'''
         self.rule = rule
         self.of = list(set(of))
         self.details = details
@@ -148,14 +151,14 @@ class Consequence:
         return hash((self.rule, self.of))
 
 class Deduction:
-    '''Stores a Knowledge achieved by deduction with the possible ways to deduce this information.'''
+    '''Stores a `Knowledge` achieved by deduction with the possible ways to deduce this information.'''
     def __init__(self, consequence_of, result):
-        '''Initiates a Deduction object. 'consequence_of' is a list of Consequence instances, 'result' is the knowledge deduced.'''
+        '''Initiates a `Deduction object`. `consequence_of` is a list of `Consequence` instances, `result` is the knowledge deduced.'''
         self.result = result
         self.consequence_of = consequence_of
     
     def add_reason(self, reason):
-        '''If 'reason' is not already in 'consequence_of', append it. Return True if this was a new reason.'''
+        '''If `reason` is not already in `consequence_of`, append it. Return `True` if this was a new reason.'''
         if reason not in self.consequence_of:
             self.consequence_of.append(reason)
             return True
@@ -172,19 +175,28 @@ class Deduction:
         return hash(id(self)) # len: stop infinite recursion HERE!
 
 class ProofStep:
-    '''Describes the reasoning behind filling a particular cell. Stores a list with the steps of the proof in order.
-    Can answer questions such as "How many/which cells are used over all?", "What is k?", "Print this!".
-    Member variables:
-    k: int
-        How many cells are used overall?
-    proof: list(Knowledge/Deduction instances)
-        The steps of the proof in order.
-    proof_order: dict(Knowledge/Deduction -> idx)
-        Inverse of 'proof'.'''
+    '''Describes the reasoning behind filling a particular cell. Stores a list with the steps of the proof in order.\\
+    Can answer questions such as "How many/which cells are used over all?", "What is k?", "Print this!".\n
+    Member variables:\\
+    `position`: `tuple(0-8, 0-8)`
+    >   Which position did we fill?\n
+    `value`: `int`
+    >   What value did we fill in?\n
+    `k`: `int`
+    >   How many cells are used overall?\n
+    `proof`: `list(Knowledge/Deduction instances)`
+    >   The steps of the proof in order.\n
+    `proof_order`: `dict(Knowledge/Deduction -> idx)`
+    >   Inverse of `proof`.\n
+    `k_opt`: `bool`
+    >   Was this proofstep optimized to use the smallest `k` possible?`\n
+    `approximation`: `bool`
+    >   Did this proofstep use some sort of approximation? If `k_opt` is `False`, or k-optimization wasn't "pure" (proof structure
+        was not acyclic), then this is `True`.'''
     def __init__(self, deductions, k_opt=False, choose_resolution=True):
-        '''Initiates a ProofStep instance wrapping deduction. Accepts a set of deductions, and chooses one to use.
-        If 'k_opt' is True, it attempt to fill the cell which requires the least amount of knowledge. Otherwise it fills the
-        first cell. In that case, if 'choose_resolution' is True, deduction will be converted to the standard format, 
+        '''Initiates a `ProofStep` instance wrapping deduction. Accepts a set of deductions, and chooses one to use.\n
+        If `k_opt` is `True`, it attempt to fill the cell which requires the least amount of knowledge. Otherwise it fills the
+        first cell. In that case, if `choose_resolution` is `True`, deduction will be converted to the standard format, 
         stripping away redundant Consequences recursively; the resulting proof structure will be acyclic.'''
         self.proof_order = {}
         self.proof = []
@@ -201,8 +213,8 @@ class ProofStep:
                 stack = set() # is this step currently in the recursion stack?
                 resolved = set() # has a resolution been found for this step?
                 def strip_redundancy(step):
-                    '''Strip redundant Consequences. Return True if a resolution is found that doesn't use step's consequences,
-                    False otherwise.'''
+                    '''Strip redundant `Consequence`s. Return `True` if a resolution is found that doesn't use step's consequences,
+                    `False` otherwise.'''
                     if step in stack:
                         return False
                     elif step in resolved:
@@ -229,7 +241,7 @@ class ProofStep:
                 strip_redundancy(deduction)
             # CREATE TOPOLOGICAL ORDERING OF PROOF
             def topological_ordering(step):
-                '''Find a topological ordering of the proof, and store it in self.proof'''
+                '''Find a topological ordering of the proof, and store it in `self.proof`'''
                 if step in self.proof_order:
                     return
                 elif isinstance(step, Knowledge): # isinstance(step, IsValue)
@@ -280,7 +292,7 @@ class ProofStep:
     
     # >>> GETTERS
     def cells(self):
-        '''Returns which cells are used overall in this proofstep in a list.'''
+        '''Returns which cells are used overall in this proofstep in a `list`.'''
         c = []
         for p in self.proof:
             if isinstance(p, IsValue):
@@ -288,7 +300,7 @@ class ProofStep:
         return c
     
     def deus_ex_steps(self):
-        '''Returns which Knowledge instances were obtained directly by deus ex in a set.'''
+        '''Returns which `Knowledge` instances were obtained directly by `deus ex` in a set.'''
         de = set()
         for p in self.proof:
             if isinstance(p, Deduction) and p.consequence_of[0].rule == "deus_ex":
@@ -298,7 +310,7 @@ class ProofStep:
 
     @staticmethod
     def _remove_fulfilled_deductions(deductions, deduction):
-        '''Removes deductions from 'deductions' which deduce the filling of the same cell as in 'deduction'. Helper function'''
+        '''Removes deductions from `deductions` which deduce the filling of the same cell as in `deduction`. Helper function'''
         to_remove = []
         p = deduction.result.get_pos()
         for d in deductions:

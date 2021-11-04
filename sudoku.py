@@ -13,6 +13,13 @@ import time
 
 sudoku_app = ConsoleApp(description='INTERACTIVE SUDOKU SOLVER')
 sudoku_app.add_variable(r'k[-_]opt(?:imi[zs]ation)?',ConsoleApp.Patterns.BOOLONOFF,'Should we minimize k in the solving process?')
+sudoku_app.add_function(r'set',[(r'row',r'\d'),(r'col(?:umn)?',r'\d:?'),(r'val(?:ue)?',r'\d')],description=
+    '''Set the cell given by 'row' and 'column' to value 'value', if possible.''')
+sudoku_app.add_function(r'ban',[(r'cells',r'(?:\d[,;\s]*\d[,;\s]*)+:'),(r'values',r'(?:[,;\s]*\d)*')],description=
+    '''Ban from the cells given in 'cells' in the format 'cell1_row,cell1_col cell2_row,cell2_col ...:' the values given in 'values'.
+Note that there must be a separating ':' between 'cells' and 'values'.''')
+sudoku_app.add_function(r'u(?:nique)?|check_unicity',[],description=
+    '''Check whether this sudoku has a unique solution. Prints the solution if it is so, or two solutions, if it is not.''')
 sudoku_app.add_function(r'print',[(r'file',ConsoleApp.Patterns.TEXT,"")],r'-?-?r(?:aw)?',r'-?-?a(?:rray)?',r'-?-?s(?:mall)?',description=
     '''Prints the board to the console (to a file, if a file is specified in a string). Flags:
 --raw:   print only the numbers which are filled in, with 0 for empty cells, no superfluous characters
@@ -22,15 +29,10 @@ sudoku_app.add_function(r'proof',[(r'slice',r'\d*\s*:\s*\d*',':'),(r'file',Conso
     r'-?-?r(?:ef(?:erence)?)?',r'-?-?[Ii](?:s[Vv]alue)?',description=
     '''Prints the proof constructed so far to the console (or the given file, e.g. "proof.txt"). A 'slice' is a start:end slice notation,
 where either or both arguments may be omitted: if this is given, only these proof steps will be printed.''')
-sudoku_app.add_function(r'set',[(r'row',r'\d'),(r'col(?:umn)?',r'\d:?'),(r'val(?:ue)?',r'\d')],description=
-    '''Set the cell given by 'row' and 'column' to value 'value', if possible.''')
-sudoku_app.add_function(r'ban',[(r'cells',r'(?:\d[,;\s]*\d[,;\s]*)+:'),(r'values',r'(?:[,;\s]*\d)*')],description=
-    '''Ban from the cells given in 'cells' in the format 'cell1_row,cell1_col cell2_row,cell2_col ...:' the values given in 'values'.
-Note that there must be a separating ':' between 'cells' and 'values'.''')
-sudoku_app.add_function(r'u(?:nique)?|check_unicity',[],description=
-    '''Check whether this sudoku has a unique solution. Prints the solution if it is so, or two solutions, if it is not.''')
 sudoku_app.add_function(r'stat(?:istic)?s?',[(r'file',ConsoleApp.Patterns.TEXT,"")],description=
     '''Prints some detailed statistics about the solving process so far, such as total runtime.''')
+sudoku_app.add_function(r'og?|origin(?:al)?|puzzle',[],description=
+    '''Prints the original puzzle to the console.''')
 sudoku_app.add_function(r'export',[(r'file',ConsoleApp.Patterns.TEXT)],
     r'-?-?n(?:ostats?)?',r'-?-?r(?:aw)?',r'-?-?a(?:rray)?',r'-?-?r(?:ef(?:erence)?)?',r'-?-?[Ii](?:s[Vv]alue)?',description=
     '''Prints information about this session to a file. If --nostats is enabled, statistics will not be printed.''')
@@ -337,6 +339,8 @@ class Sudoku:
                     print("STATISTICS:")
                     self.print_stats()
                 print.reset()
+            elif action == 'func' and rname == r'og?|origin(?:al)?|puzzle':
+                print_board(self.starting_board)
                 
     # >>> UTILITY
     def is_unique(self):
@@ -369,6 +373,7 @@ class Sudoku:
         print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")
         print(f"| Deus ex sets:            {self.deus_ex_sets}\n")
         print(f"Proof steps made:          {len(self.proof)}")
+        print(f"| k-optimized steps:       {sum((1 if s.k_opt else 0 for s in self.proof))}")
         print(f"| Weak k-approximations:   {sum((1 if (s.approximation or (not s.k_opt)) and s.k>8 else 0 for s in self.proof))}")
         print(f"| Strong k-approximations: {sum((1 if (s.approximation or (not s.k_opt)) and s.k<=8 else 0 for s in self.proof))}")
         print(f"| Maximal k:               {0 if len(self.proof)==0 else max((step.k for step in self.proof))}")

@@ -149,7 +149,7 @@ class Consequence:
             (self.details == other.details)
     
     def __hash__(self):
-        return hash((self.rule, self.of))
+        return hash((self.rule, tuple(self.of)))
 
 class Deduction:
     '''Stores a `Knowledge` achieved by deduction with the possible ways to deduce this information.'''
@@ -228,7 +228,7 @@ class ProofStep:
             # > optimize for minimal k
             prob += pl.lpSum((v for v in isvalue_used))
             # SOLVE IP PROBLEM
-            if prob.solve() == 1: # if solve failed: revert to bruteforce
+            if prob.solve(pl.PULP_CBC_CMD(msg=0)) == 1: # if solve failed: revert to bruteforce
                 # CONVERT SOLUTION TO PROOFSTEP
                 for ded in deductions:
                     if pl.value(knowledge_used[ded]) == 1.0:

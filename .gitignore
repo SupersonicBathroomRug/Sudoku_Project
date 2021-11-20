@@ -1,6 +1,8 @@
 playground.py
 *.ipynb
 
+.vscode/
+
 .ipynb_checkpoints/
 __pycache__/
 output/

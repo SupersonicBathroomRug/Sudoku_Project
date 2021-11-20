@@ -1,14 +1,16 @@
 # ==========================================
 #       SUDOKU MANAGEMENT & SOLVING
 # ==========================================
-from boardio import *
-from tracker import *
-from itertools import product
+import re
 import numpy as np
-import copy
+import time
+from boardio import edit_sudoku, fetch_puzzle, init_tuples_from_array, print_board, print_detailed_board
+from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell
+from tracker import CantBe, Consequence, Deduction, IsValue, MustBe, ProofStep
+from util import cell_section, local_to_global, global_to_local, diclen
 from sys import argv
 from getopt import getopt
-import time
+from itertools import product
 
 class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
@@ -51,7 +53,7 @@ class Sudoku:
         '''Fill in the given cell with the given value.\\
         Take note of the new restricions this causes, and stop tracking this value & position further.'''
         if val == 0:
-            raise NotImplementedError("Cannot assign 0 to any cell!")
+            raise ValueError("Cannot assign 0 to any cell!")
         self.missing -= 1
         row = key[0]
         col = key[1]
@@ -123,7 +125,7 @@ class Sudoku:
             return self.allowed[k.position[0]][k.position[1]][k.value]
         elif k.coordtype == "rowpos":
             return self.rowpos[k.position[0]][k.value-1][k.position[1]]
-        elif k.coordtype == "cellpos":
+        elif k.coordtype == "colpos":
             return self.colpos[k.position[0]][k.value-1][k.position[1]]
         elif k.coordtype == "secpos":
             return self.secpos[k.position[0]][k.value-1][k.position[1]]
@@ -135,7 +137,7 @@ class Sudoku:
             self.allowed[k.position[0]][k.position[1]][k.value] = deduction
         elif k.coordtype == "rowpos":
             self.rowpos[k.position[0]][k.value-1][k.position[1]] = deduction
-        elif k.coordtype == "cellpos":
+        elif k.coordtype == "colpos":
             self.colpos[k.position[0]][k.value-1][k.position[1]] = deduction
         elif k.coordtype == "secpos":
             self.secpos[k.position[0]][k.value-1][k.position[1]] = deduction
@@ -151,31 +153,11 @@ class Sudoku:
             # MAKE DEDUCTIONS WHILE POSSIBLE
             while made_deduction:
                 made_deduction = False
-                # RULE: only 1 value can be written to this cell, as all others are present in this row+column+section
-                for i, j in product(range(9), range(9)):
-                    if self.board[i][j]!=0: # left here to enable contradiction check
-                        continue
-                    tmp = self.allowed[i][j] # which numbers are not present in this row+column+section?
-                    if len(tmp)==0: # if nothing is allowed in this empty cell: CONTRADICTION!
-                        print(f"cannot fill cell {i},{j}")
-                        return
-                    if len(tmp)==1: # if only a single value is allowed: FILL!
-                        ass =tmp.last_one()
-                        made_deduction |= self.make_deduction(MustBe((i,j),ass),
-                            'allowed',tmp.notNones())
-                # RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
-                # ignoring already filled cells is done be make_deduction
-                for i, j in product(range(9), range(9)):
-                    if len(self.rowpos[i][j]) == 1:
-                        made_deduction |= self.make_deduction(MustBe((i,self.rowpos[i][j].last_one()),j+1,'rowpos'),
-                            'rowpos',self.rowpos[i][j].notNones())
-                    if len(self.colpos[i][j])==1:
-                        made_deduction |= self.make_deduction(MustBe((i,self.colpos[i][j].last_one()),j+1,'colpos'),
-                            'colpos',self.colpos[i][j].notNones())
-                    if len(self.secpos[i][j])==1:
-                        p = local_to_global(i,*self.secpos[i][j].last_one())
-                        made_deduction |= self.make_deduction(MustBe((i,self.secpos[i][j].last_one()),j+1,'secpos'),
-                            'secpos',self.secpos[i][j].notNones())
+                only_one_value(self)
+                only_this_cell(self)
+                made_deduction |= nake_pair(self)
+                made_deduction |= hidden_pair(self)
+
             self.deduction_time += time.time() - timestamp
             timestamp = time.time()
             # EXIT IF NECESSARY
@@ -349,13 +331,15 @@ class Sudoku:
             with open(file, 'w') as f:
                 for i in range(start, end):
                     f.write(self.proof_to_string(i,isvalue,reference)+'\n')
-    
+
     def ban(self, row, col, value, rule, cells_used):
         '''Ban `value` from `(row, col)` using `rule` (`str`  identifier) applied to `cells_used` (`list` of `Knowledge`/`Deduction` instances).'''
-        self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
-        self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
-        self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
-        self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
+        made_deduction = False
+        made_deduction |= self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
+        return made_deduction
 
 # >>> SOLVERS
 def check_unicity(board_to_solve, verbose=False):

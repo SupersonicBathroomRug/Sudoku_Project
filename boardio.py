@@ -7,8 +7,36 @@ import re
 import numpy as np
 import requests
 import bs4 # type: ignore
+import sys
+import builtins
 
 headers = {'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36'}
+
+# >>> Custom print to make printing to files easier.
+class MyPrint:
+    '''Wrapper for the print funtcion to make printing to files with it easier.'''
+    def __init__(self):
+        self.file = sys.stdout
+    
+    def set_file(self, path):
+        '''From now on print into this file! (None or '': print to console.)'''
+        if self.file != sys.stdout:
+            self.file.close()
+        if path is None or path == '':
+            self.file = sys.stdout
+        else:
+            self.file = open(path, 'w')
+    
+    def reset(self):
+        '''Return to printing to the console.'''
+        if self.file != sys.stdout:
+            self.file.close()
+            self.file = sys.stdout
+    
+    def __call__(self, *args, **kwargs):
+        builtins.print(*args,**kwargs,file=self.file) # noqa
+
+print = MyPrint()
 
 # >>> MANAGING INPUT FROM TEXT/LISTS
 def init_tuples_from_text(s):
@@ -121,6 +149,29 @@ def print_detailed_board(board, possibles):
                     print("  ┗━━━┛  ",end="")
             print("║")
     print("╚═════════╧═════════╧═════════╩═════════╧═════════╧═════════╩═════════╧═════════╧═════════╝")
+
+def print_raw_board(board):
+    '''Print the board with only the numbers visible, 0-s for empty cells, newlines between lines of the board.'''
+    for line in board:
+        print(''.join((str(i) for i in line)))
+
+def print_array_board(board):
+    '''Print the board in an array format'''
+    for i, line in enumerate(board):
+        print("[[" if i==0 else " [",', '.join((str(i) for i in line)),'],' if i < 8 else ']]',sep='')
+
+def print_small_board(board):
+    '''Basically print_board without a selection, and uglier.'''
+    for i, line in enumerate(board):
+        if i%3 == 0:
+            print('+---------+---------+---------+')
+        for j in range(9):
+            if j%3==0:
+                print("|",end="")
+            print(f" {' ' if board[i][j]==0 else board[i][j]} ",end="")
+        print("|")
+    print('+---------+---------+---------+')
+
 
 if __name__ == "__main__":
     # init_tuples_from_text test

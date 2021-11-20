@@ -2,17 +2,21 @@
 #       SUDOKU MANAGEMENT & SOLVING
 # ==========================================
 
+# standard modules
 import numpy as np
 import re
 import time
-from consoleapp import ConsoleApp
-from boardio import edit_sudoku, fetch_puzzle, init_tuples_from_array, print_board, print_detailed_board
-from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell
-from tracker import CantBe, Consequence, Deduction, IsValue, MustBe, ProofStep
-from util import cell_section, local_to_global, global_to_local, diclen
+import builtins
 from sys import argv
 from getopt import getopt
 from itertools import product
+# custom modules
+from consoleapp import ConsoleApp
+import boardio
+from boardio import print
+from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell
+from tracker import CantBe, Consequence, Deduction, IsValue, MustBe, ProofStep
+from util import cell_section, local_to_global, global_to_local, diclen
 
 sudoku_app = ConsoleApp(description='INTERACTIVE SUDOKU SOLVER')
 sudoku_app.add_variable(r'k[-_]opt(?:imi[zs]ation)?',ConsoleApp.Patterns.BOOLONOFF,'Should we minimize k in the solving process?')
@@ -55,7 +59,7 @@ class Sudoku:
         if tuples is not None:
             pass
         elif board is not None:
-            tuples = init_tuples_from_array(board)
+            tuples = boardio.init_tuples_from_array(board)
         else:
             raise ValueError("'board' or 'tuples' must be given in the contructor.")
         # cell-based variables:
@@ -209,12 +213,12 @@ class Sudoku:
     def interactive_solve(self):
         '''Interactive solver tool. Type `'h'` or `'help'` for help.'''
         print("   INTERACTIVE SOLVER STARTED  ")
-        print_board(self.board)
+        boardio.print_board(self.board)
         for action, rname, data in sudoku_app:
             if action == 'func' and rname == "": # Attempt solve
                 if self.solve():
                     print("          =========================   SUDOKU COMPLETE   =========================          ")
-                    print_board(self.board)
+                    boardio.print_board(self.board)
                 else:
                     print("Solver got stuck at this state:")
                     self.print_status()
@@ -224,14 +228,14 @@ class Sudoku:
                     print(f"Printing board to file {file}")
                 print.set_file(file)
                 if data['flags'][r'-?-?r(?:aw)?']:
-                    print_raw_board(self.board)
+                    boardio.print_raw_board(self.board)
                 elif data['flags'][r'-?-?a(?:rray)?']:
-                    print_array_board(self.board)
+                    boardio.print_array_board(self.board)
                 elif data['flags'][r'-?-?s(?:mall)?']:
                     if file == "":
-                        print_board(self.board)
+                        boardio.print_board(self.board)
                     else:
-                        print_small_board(self.board)
+                        boardio.print_small_board(self.board)
                 else:
                     if file == "":
                         self.print_status()
@@ -264,11 +268,11 @@ class Sudoku:
                 u, sols = self.is_unique()
                 if u:
                     print("[UNIQUE] This puzzle has a unique solution. It is the following:")
-                    print_board(sols[0])
+                    boardio.print_board(sols[0])
                 else:
                     print("[NOT UNIQUE] This puzzle has multiple solutions. Two of these are:")
-                    print_board(sols[0])
-                    print_board(sols[1])
+                    boardio.print_board(sols[0])
+                    boardio.print_board(sols[1])
             elif action == 'func' and rname == 'proof':
                 file = ConsoleApp.get_text(data['params']['file'])
                 if file != '':
@@ -304,18 +308,18 @@ class Sudoku:
                 print.set_file(file)
                 print("STARTING BOARD:")
                 if data['flags'][r'-?-?r(?:aw)?']:
-                    print_raw_board(self.starting_board)
+                    boardio.print_raw_board(self.starting_board)
                 elif data['flags'][r'-?-?a(?:rray)?']:
-                    print_array_board(self.starting_board)
+                    boardio.print_array_board(self.starting_board)
                 else:
-                    print_small_board(self.starting_board)
+                    boardio.print_small_board(self.starting_board)
                 print("FINAL BOARD:")
                 if data['flags'][r'-?-?r(?:aw)?']:
-                    print_raw_board(self.board)
+                    boardio.print_raw_board(self.board)
                 elif data['flags'][r'-?-?a(?:rray)?']:
-                    print_array_board(self.board)
+                    boardio.print_array_board(self.board)
                 else:
-                    print_small_board(self.board)
+                    boardio.print_small_board(self.board)
                 print("PROOF:")
                 self.print_proof(isvalue=data['flags'][r'-?-?[Ii](?:s[Vv]alue)?'], reference=data['flags'][r'-?-?r(?:ef(?:erence)?)?'])
                 if not data['flags'][r'-?-?n(?:ostats?)?']:
@@ -323,7 +327,7 @@ class Sudoku:
                     self.print_stats()
                 print.reset()
             elif action == 'func' and rname == r'og?|origin(?:al)?|puzzle':
-                print_board(self.starting_board)
+                boardio.print_board(self.starting_board)
                 
     # >>> UTILITY
     def is_unique(self):
@@ -332,7 +336,7 @@ class Sudoku:
     
     def print_status(self):
         '''Prints a detailed representation of the current state of the puzzle. Each cell contains which numbers can be written there.'''
-        print_detailed_board(self.board, [[self.allowed[r][c].allowed() for c in range(9)] for r in range(9)])
+        boardio.print_detailed_board(self.board, [[self.allowed[r][c].allowed() for c in range(9)] for r in range(9)])
     
     def proof_to_string(self, idx, isvalue=False, reference=False):
         '''Converts the data of the ith proof step to a string.'''
@@ -429,7 +433,7 @@ if __name__ == "__main__":
     for opt, arg in opts.items():
         if opt == '-l' or opt == "--link":
             try:
-                listoflists = fetch_puzzle(arg)
+                listoflists = boardio.fetch_puzzle(arg)
             except ValueError as e:
                 print(f"ERROR: {str(e)}")
                 print("Initializing empty board...")
@@ -437,12 +441,12 @@ if __name__ == "__main__":
     for opt, arg in opts.items():
         if opt == '-e' or opt == '--editor':
             print("Starting sudoku editor. Press 'h' for help. Press 'q' to start the solving process.")
-            listoflists = edit_sudoku(listoflists)
+            listoflists = boardio.edit_sudoku(listoflists)
     if listoflists != None:
         su = Sudoku(board=listoflists)
         if ('-p' in opts) or ("--passive" in opts):
             su.solve()
-            print_board(su.board)
+            boardio.print_board(su.board)
         else:
             su.interactive_solve()
     else:

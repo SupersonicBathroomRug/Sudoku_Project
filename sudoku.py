@@ -1,14 +1,46 @@
 # ==========================================
 #       SUDOKU MANAGEMENT & SOLVING
 # ==========================================
-from boardio import *
-from tracker import *
-from itertools import product
+
 import numpy as np
-import copy
+import re
+import time
+from consoleapp import ConsoleApp
+from boardio import edit_sudoku, fetch_puzzle, init_tuples_from_array, print_board, print_detailed_board
+from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell
+from tracker import CantBe, Consequence, Deduction, IsValue, MustBe, ProofStep
+from util import cell_section, local_to_global, global_to_local, diclen
 from sys import argv
 from getopt import getopt
-import time
+from itertools import product
+
+sudoku_app = ConsoleApp(description='INTERACTIVE SUDOKU SOLVER')
+sudoku_app.add_variable(r'k[-_]opt(?:imi[zs]ation)?',ConsoleApp.Patterns.BOOLONOFF,'Should we minimize k in the solving process?')
+sudoku_app.add_function(r'set',[(r'row',r'\d'),(r'col(?:umn)?',r'\d:?'),(r'val(?:ue)?',r'\d')],description=
+    '''Set the cell given by 'row' and 'column' to value 'value', if possible.''')
+sudoku_app.add_function(r'ban',[(r'cells',r'(?:\d[,;\s]*\d[,;\s]*)+:'),(r'values',r'(?:[,;\s]*\d)*')],description=
+    '''Ban from the cells given in 'cells' in the format 'cell1_row,cell1_col cell2_row,cell2_col ...:' the values given in 'values'.
+Note that there must be a separating ':' between 'cells' and 'values'.''')
+sudoku_app.add_function(r'u(?:nique)?|check_unicity',[],description=
+    '''Check whether this sudoku has a unique solution. Prints the solution if it is so, or two solutions, if it is not.''')
+sudoku_app.add_function(r'print',[(r'file',ConsoleApp.Patterns.TEXT,"")],r'-?-?r(?:aw)?',r'-?-?a(?:rray)?',r'-?-?s(?:mall)?',description=
+    '''Prints the board to the console (to a file, if a file is specified in a string). Flags:
+--raw:   print only the numbers which are filled in, with 0 for empty cells, no superfluous characters
+--array: print the Sudoku.board array in a python array-style
+--small: the sudoku will be pretty printed, but only the filled in values are shown''')
+sudoku_app.add_function(r'proof',[(r'slice',r'\d*\s*:\s*\d*',':'),(r'file',ConsoleApp.Patterns.TEXT,"")],
+    r'-?-?r(?:ef(?:erence)?)?',r'-?-?[Ii](?:s[Vv]alue)?',description=
+    '''Prints the proof constructed so far to the console (or the given file, e.g. "proof.txt"). A 'slice' is a start:end slice notation,
+where either or both arguments may be omitted: if this is given, only these proof steps will be printed.''')
+sudoku_app.add_function(r'stat(?:istic)?s?',[(r'file',ConsoleApp.Patterns.TEXT,"")],description=
+    '''Prints some detailed statistics about the solving process so far, such as total runtime.''')
+sudoku_app.add_function(r'og?|origin(?:al)?|puzzle',[],description=
+    '''Prints the original puzzle to the console.''')
+sudoku_app.add_function(r'export',[(r'file',ConsoleApp.Patterns.TEXT)],
+    r'-?-?n(?:ostats?)?',r'-?-?r(?:aw)?',r'-?-?a(?:rray)?',r'-?-?r(?:ef(?:erence)?)?',r'-?-?[Ii](?:s[Vv]alue)?',description=
+    '''Prints information about this session to a file. If --nostats is enabled, statistics will not be printed.''')
+sudoku_app.add_function(r'',[],description=
+    '''Attempts to solve the sudoku from this state.''')
 
 class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
@@ -46,12 +78,13 @@ class Sudoku:
         self.deus_ex_sets = 0
         for row, col, val in tuples:
             self[row, col] = val
+        self.starting_board = [[self.board[i][j] for j in range(9)] for i in range(9)]
     
     def __setitem__(self, key, val):
         '''Fill in the given cell with the given value.\\
         Take note of the new restricions this causes, and stop tracking this value & position further.'''
         if val == 0:
-            raise NotImplementedError("Cannot assign 0 to any cell!")
+            raise ValueError("Cannot assign 0 to any cell!")
         self.missing -= 1
         row = key[0]
         col = key[1]
@@ -123,7 +156,7 @@ class Sudoku:
             return self.allowed[k.position[0]][k.position[1]][k.value]
         elif k.coordtype == "rowpos":
             return self.rowpos[k.position[0]][k.value-1][k.position[1]]
-        elif k.coordtype == "cellpos":
+        elif k.coordtype == "colpos":
             return self.colpos[k.position[0]][k.value-1][k.position[1]]
         elif k.coordtype == "secpos":
             return self.secpos[k.position[0]][k.value-1][k.position[1]]
@@ -135,7 +168,7 @@ class Sudoku:
             self.allowed[k.position[0]][k.position[1]][k.value] = deduction
         elif k.coordtype == "rowpos":
             self.rowpos[k.position[0]][k.value-1][k.position[1]] = deduction
-        elif k.coordtype == "cellpos":
+        elif k.coordtype == "colpos":
             self.colpos[k.position[0]][k.value-1][k.position[1]] = deduction
         elif k.coordtype == "secpos":
             self.secpos[k.position[0]][k.value-1][k.position[1]] = deduction
@@ -151,31 +184,11 @@ class Sudoku:
             # MAKE DEDUCTIONS WHILE POSSIBLE
             while made_deduction:
                 made_deduction = False
-                # RULE: only 1 value can be written to this cell, as all others are present in this row+column+section
-                for i, j in product(range(9), range(9)):
-                    if self.board[i][j]!=0: # left here to enable contradiction check
-                        continue
-                    tmp = self.allowed[i][j] # which numbers are not present in this row+column+section?
-                    if len(tmp)==0: # if nothing is allowed in this empty cell: CONTRADICTION!
-                        print(f"cannot fill cell {i},{j}")
-                        return
-                    if len(tmp)==1: # if only a single value is allowed: FILL!
-                        ass =tmp.last_one()
-                        made_deduction |= self.make_deduction(MustBe((i,j),ass),
-                            'allowed',tmp.notNones())
-                # RULE: v can be written only to this cell in this row/column/section, as all other cells are filled/v cannot be written in them
-                # ignoring already filled cells is done be make_deduction
-                for i, j in product(range(9), range(9)):
-                    if len(self.rowpos[i][j]) == 1:
-                        made_deduction |= self.make_deduction(MustBe((i,self.rowpos[i][j].last_one()),j+1,'rowpos'),
-                            'rowpos',self.rowpos[i][j].notNones())
-                    if len(self.colpos[i][j])==1:
-                        made_deduction |= self.make_deduction(MustBe((i,self.colpos[i][j].last_one()),j+1,'colpos'),
-                            'colpos',self.colpos[i][j].notNones())
-                    if len(self.secpos[i][j])==1:
-                        p = local_to_global(i,*self.secpos[i][j].last_one())
-                        made_deduction |= self.make_deduction(MustBe((i,self.secpos[i][j].last_one()),j+1,'secpos'),
-                            'secpos',self.secpos[i][j].notNones())
+                only_one_value(self)
+                only_this_cell(self)
+                made_deduction |= nake_pair(self)
+                made_deduction |= hidden_pair(self)
+
             self.deduction_time += time.time() - timestamp
             timestamp = time.time()
             # EXIT IF NECESSARY
@@ -197,28 +210,38 @@ class Sudoku:
         '''Interactive solver tool. Type `'h'` or `'help'` for help.'''
         print("   INTERACTIVE SOLVER STARTED  ")
         print_board(self.board)
-        while True:
-            # INTERACTIVE PART
-            k = input("> ")
-            if k == "": # Attempt solve
+        for action, rname, data in sudoku_app:
+            if action == 'func' and rname == "": # Attempt solve
                 if self.solve():
                     print("          =========================   SUDOKU COMPLETE   =========================          ")
                     print_board(self.board)
                 else:
                     print("Solver got stuck at this state:")
                     self.print_status()
-            elif k == "print" or k == "p": # Print
-                self.print_status()
-            elif k == "quit" or k == "q" or k == "exit": # Exit loop
-                return
-            elif k.startswith("set "):
-                m = re.match(r'set\s+(\d)[^\d]*(\d)[^\d]*(\d)\s*', k)
-                if m is None:
-                    print("ERROR: could not parse input. Please use 'set {row} {col} {value}'")
-                    continue
-                r = int(m.group(1))
-                c = int(m.group(2))
-                v = int(m.group(3))
+            elif action == 'func' and rname == r'print': # Print
+                file = ConsoleApp.get_text(data['params']['file'])
+                if file != '':
+                    print(f"Printing board to file {file}")
+                print.set_file(file)
+                if data['flags'][r'-?-?r(?:aw)?']:
+                    print_raw_board(self.board)
+                elif data['flags'][r'-?-?a(?:rray)?']:
+                    print_array_board(self.board)
+                elif data['flags'][r'-?-?s(?:mall)?']:
+                    if file == "":
+                        print_board(self.board)
+                    else:
+                        print_small_board(self.board)
+                else:
+                    if file == "":
+                        self.print_status()
+                    else:
+                        builtins.print("ERROR: can't pretty print to a file!")
+                print.reset()
+            elif action == 'func' and rname == r'set':
+                r = int(data['params']['row'])
+                c = int(re.sub('[^\d]','',data['params']['col(?:umn)?']))
+                v = int(data['params']['val(?:ue)?'])
                 if self.board[r][c] != 0:
                     print(f"ERROR: ({r}, {c}) is already filled with {self.board[r][c]}")
                     continue
@@ -228,19 +251,15 @@ class Sudoku:
                 self[r,c] = v
                 self.deus_ex_sets += 1
                 print(f"({r}, {c}) has been set to {v}.")
-            elif k.startswith("ban "):
-                k = re.sub(r'[^\d:]+','',k)
-                halves = k.split(':')
-                if len(halves) != 2 or len(halves[0])%2!=0:
-                    print("ERROR: could not parse input. Please use 'ban {cell1_row} {cell1_col} {cell2_row} {cell2_col}[...]: {value1} {value2}[...]'")
-                    continue
-                cells = [(int(halves[0][2*i]),int(halves[0][2*i+1])) for i in range(len(halves[0])//2)]
-                to_ban = {int(d) for d in halves[1]}
+            elif action == 'func' and rname == r'ban':
+                pure_cell_str = re.sub('[^\d]','',data['params']['cells'])
+                cells = [(int(pure_cell_str[2*i]),int(pure_cell_str[2*i+1])) for i in range(len(pure_cell_str)//2)]
+                to_ban = {int(d) for d in re.sub(r'[^\d]','',data['params']['values'])}
                 for r, c in cells:
                     for val in to_ban:
                         self.ban(r,c,val,'deus_ex',[])
                 print(f"{to_ban} banned from the following cells: {cells}")
-            elif k == 'u' or k == 'unique':
+            elif action == 'func' and rname == r'u(?:nique)?|check_unicity':
                 print("Checking unicity of the puzzle. Please wait.")
                 u, sols = self.is_unique()
                 if u:
@@ -250,79 +269,61 @@ class Sudoku:
                     print("[NOT UNIQUE] This puzzle has multiple solutions. Two of these are:")
                     print_board(sols[0])
                     print_board(sols[1])
-            elif k.startswith("proof"):
-                # Get name of the output file; optional
-                file = re.search(r"""\s-?-?file=(?P<quote>['"])(?P<path>.*?)(?P=quote)""", k) 
-                if file != None:
-                    file = file.group("path")
-                    print(f"Printing output to {file}.")
-                # Get params; optional
-                print_isvalue = False
-                if re.search(r'\s-?-?[iI]s[vV]alue',k) is not None:
-                    print_isvalue = True
-                    k = re.sub(r'\s-?-?[iI]s[vV]alue','',k)
-                print_reference = False
-                if re.search(r'\s-?-?ref(erence)?',k) is not None:
-                    print_reference = True
-                    k = re.sub(r'\s-?-?ref(erence)?','',k)
+            elif action == 'func' and rname == 'proof':
+                file = ConsoleApp.get_text(data['params']['file'])
+                if file != '':
+                    print(f"Printing output to {file}")
                 # Simplify k:
-                k = re.sub(r"""\s-?-?file=(?P<quote>['"]).*?(?P=quote)""",'',k)
-                k = re.sub(r'[^\d:]+','',k)
-                if k == '':
-                    k = ':'
+                data['params']['slice'] = re.sub(r'[^\d:]','',data['params']['slice'])
                 # Process k into proper slice indicies:
-                halves = k.split(':')
-                if len(halves) != 2:
-                    print("ERROR: could not parse input. Please use 'proof [file=\"{file_path}\", optional] {first_line}:{last_line}'")
-                    continue
+                halves = data['params']['slice'].split(':')
                 start = int(halves[0]) if halves[0] != '' else 0
                 end = int(halves[1]) if halves[1] != '' else len(self.proof)
                 if end > len(self.proof):
-                    print(f"WARNING: specified range too large; proof only has {len(self.proof)} steps so far.")
+                    builtins.print(f"WARNING: specified range too large; proof only has {len(self.proof)} steps so far.")
                 # Execute printing:
-                self.print_proof(file, start, min(end, len(self.proof)),isvalue=print_isvalue, reference=print_reference)
-            elif k.startswith('k_') or k.startswith('k-'):
-                if re.match(r'k[-_]opt(imi[sz]ation)?(\s*=\s*|\s+)(off|Off|OFF|false|False|FALSE)', k) is not None:
-                    self.k_opt = False
-                elif re.match(r'k[-_]opt(imi[sz]ation)?(\s*=\s*|\s+)(on|On|ON|true|True|TRUE)', k) is not None:
-                    self.k_opt = True
-                elif re.match(r'k[-_]opt(imi[sz]ation)?\s*$',k) is not None:
-                    print(f"k-optimization: {'ON' if self.k_opt else 'OFF'}")
+                print.set_file(file)
+                self.print_proof(start, min(end, len(self.proof)),
+                    isvalue=data['flags'][r'-?-?[Ii](?:s[Vv]alue)?'], 
+                    reference=data['flags'][r'-?-?r(?:ef(?:erence)?)?'])
+                print.reset()
+            elif action == 'get_var' and rname == r'k[-_]opt(?:imi[zs]ation)?':
+                print(f"k-optimization: {'ON' if self.k_opt else 'OFF'}")
+            elif action == 'set_var' and rname == r'k[-_]opt(?:imi[zs]ation)?':
+                self.k_opt = ConsoleApp.str_to_bool(data)
+            elif action == 'func' and rname == r'stat(?:istic)?s?':
+                file = ConsoleApp.get_text(data['params']['file'])
+                if file != '':
+                    print(f"Printing statistics to {file}")
+                print.set_file(file)
+                self.print_stats()
+                print.reset()
+            elif action == 'func' and rname == r'export':
+                file = ConsoleApp.get_text(data['params']['file'])
+                print(f"Exporting session data to {file}")
+                print.set_file(file)
+                print("STARTING BOARD:")
+                if data['flags'][r'-?-?r(?:aw)?']:
+                    print_raw_board(self.starting_board)
+                elif data['flags'][r'-?-?a(?:rray)?']:
+                    print_array_board(self.starting_board)
                 else:
-                    print("ERROR: could not parse input. Please use 'k-opt [OFF/ON]'")
-            elif k == "stats":
-                print(f"RUNTIME:                   {self.deduction_time+self.k_opt_time+self.fill_time} s")
-                print(f"| Deduction time:          {self.deduction_time} s")
-                print(f"| k-optimization time:     {self.k_opt_time} s")
-                print(f"| Fill time:               {self.fill_time} s\n")
-                print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}\n")
-                print(f"| Failed solves:           {self.failed_solves}")
-                print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")
-                print(f"| Deus ex sets:            {self.deus_ex_sets}\n")
-                print(f"Proof steps made:          {len(self.proof)}")
-                print(f"| Weak k-approximations:   {sum((1 if (s.approximation or (not s.k_opt)) and s.k>8 else 0 for s in self.proof))}")
-                print(f"| Strong k-approximations: {sum((1 if (s.approximation or (not s.k_opt)) and s.k<=8 else 0 for s in self.proof))}")
-                print(f"| Maximal k:               {0 if len(self.proof)==0 else max((step.k for step in self.proof))}")
-            elif k == "h" or k == "help":
-                print("Commands:")
-                print("   print:")
-                print("      Print current state of the sudoku.")
-                print("   quit, q, exit:")
-                print("      Exit the solver.")
-                print("   set {row} {column} {value}:")
-                print("      Set the value of the specified cell. Indexing of rows/cols starts from 0.")
-                print("   ban [{cell_i_row} {cell_i_col} pairs]: [{value} banned values]")
-                print("      Ban these values from these cells. Row/col indexing starts from 0.")
-                print("   unique or u:")
-                print("      Checks whether this puzzle is unique, and prints the solution if so, or two of the solutions if not.")
-                print("   proof [file=\"{file_path}\", optional] {first_line}:{last_line}")
-                print("      Prints the steps of the proof from the first specified line to the one before the last.")
-                print("      The ':' is a python slice notation: either side can be omitted. Output will be written on the console,")
-                print("      if no filepath is specified.")
-                print("   help or h:")
-                print("      Print this help.")
-                print("   []:")
-                print("      The empty command attempts a solve from the current state.")
+                    print_small_board(self.starting_board)
+                print("FINAL BOARD:")
+                if data['flags'][r'-?-?r(?:aw)?']:
+                    print_raw_board(self.board)
+                elif data['flags'][r'-?-?a(?:rray)?']:
+                    print_array_board(self.board)
+                else:
+                    print_small_board(self.board)
+                print("PROOF:")
+                self.print_proof(isvalue=data['flags'][r'-?-?[Ii](?:s[Vv]alue)?'], reference=data['flags'][r'-?-?r(?:ef(?:erence)?)?'])
+                if not data['flags'][r'-?-?n(?:ostats?)?']:
+                    print("STATISTICS:")
+                    self.print_stats()
+                print.reset()
+            elif action == 'func' and rname == r'og?|origin(?:al)?|puzzle':
+                print_board(self.starting_board)
                 
     # >>> UTILITY
     def is_unique(self):
@@ -339,23 +340,35 @@ class Sudoku:
         ret += "\n\t".join(self.proof[idx].to_strings(reference,isvalue))
         return ret
 
-    def print_proof(self, file=None, start=0, end=None, isvalue=False, reference=False):
-        '''Prints proof steps from `#start` to `#end` (default: 0 and last) to the specified file, or the console if `file` is `None`.'''
+    def print_proof(self, start=0, end=None, isvalue=False, reference=False):
+        '''Prints proof steps from #start to #end (default: 0 and last) to the specified file, or the console if file is None.'''
         if end is None: end = len(self.proof)
-        if file is None:
-            for i in range(start, end):
-                print(self.proof_to_string(i,isvalue,reference))
-        else:
-            with open(file, 'w') as f:
-                for i in range(start, end):
-                    f.write(self.proof_to_string(i,isvalue,reference)+'\n')
-    
+        for i in range(start, end):
+            print(self.proof_to_string(i,isvalue,reference))
+
+    def print_stats(self):
+        print(f"RUNTIME:                   {self.deduction_time+self.k_opt_time+self.fill_time} s")
+        print(f"| Deduction time:          {self.deduction_time} s")
+        print(f"| k-optimization time:     {self.k_opt_time} s")
+        print(f"| Fill time:               {self.fill_time} s\n")
+        print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}\n")
+        print(f"| Failed solves:           {self.failed_solves}")
+        print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")
+        print(f"| Deus ex sets:            {self.deus_ex_sets}\n")
+        print(f"Proof steps made:          {len(self.proof)}")
+        print(f"| k-optimized steps:       {sum((1 if s.k_opt else 0 for s in self.proof))}")
+        print(f"| Weak k-approximations:   {sum((1 if (s.approximation or (not s.k_opt)) and s.k>8 else 0 for s in self.proof))}")
+        print(f"| Strong k-approximations: {sum((1 if (s.approximation or (not s.k_opt)) and s.k<=8 else 0 for s in self.proof))}")
+        print(f"| Maximal k:               {0 if len(self.proof)==0 else max((step.k for step in self.proof))}")
+
     def ban(self, row, col, value, rule, cells_used):
         '''Ban `value` from `(row, col)` using `rule` (`str`  identifier) applied to `cells_used` (`list` of `Knowledge`/`Deduction` instances).'''
-        self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
-        self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
-        self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
-        self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
+        made_deduction = False
+        made_deduction |= self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
+        return made_deduction
 
 # >>> SOLVERS
 def check_unicity(board_to_solve, verbose=False):

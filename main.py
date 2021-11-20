@@ -90,4 +90,4 @@ def example3():
     
 
 if __name__ == "__main__":
-    example2()
+    example3()

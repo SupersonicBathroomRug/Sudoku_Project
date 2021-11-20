@@ -38,7 +38,7 @@ sudoku_app.add_function(r'proof',[(r'slice',r'\d*\s*:\s*\d*',':'),(r'file',Conso
 where either or both arguments may be omitted: if this is given, only these proof steps will be printed.''')
 sudoku_app.add_function(r'stat(?:istic)?s?',[(r'file',ConsoleApp.Patterns.TEXT,"")],description=
     '''Prints some detailed statistics about the solving process so far, such as total runtime.''')
-sudoku_app.add_function(r'og?|origin(?:al)?|puzzle',[],description=
+sudoku_app.add_function(r'origin(?:al)?|og?|puzzle',[],description=
     '''Prints the original puzzle to the console.''')
 sudoku_app.add_function(r'export',[(r'file',ConsoleApp.Patterns.TEXT)],
     r'-?-?n(?:ostats?)?',r'-?-?r(?:aw)?',r'-?-?a(?:rray)?',r'-?-?r(?:ef(?:erence)?)?',r'-?-?[Ii](?:s[Vv]alue)?',description=
@@ -50,7 +50,7 @@ class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
 
     # >>> DATA MANIPULATION
-    def __init__(self, board=None, tuples=None, k_opt=True):
+    def __init__(self, board=None, tuples=None, k_opt=False):
         '''Initialize a sudoku either with:\n
         `board`: `list` of `list`s
         >   A matrix representation of the sudoku table, with 0s in empty cells.\n
@@ -326,7 +326,7 @@ class Sudoku:
                     print("STATISTICS:")
                     self.print_stats()
                 print.reset()
-            elif action == 'func' and rname == r'og?|origin(?:al)?|puzzle':
+            elif action == 'func' and rname == r'origin(?:al)?|og?|puzzle':
                 boardio.print_board(self.starting_board)
                 
     # >>> UTILITY

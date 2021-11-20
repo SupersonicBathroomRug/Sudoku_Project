@@ -138,7 +138,7 @@ class ProofStep:
     `approximation`: `bool`
     >   Did this proofstep use some sort of approximation? If `k_opt` is `False`, or k-optimization wasn't "pure" (proof structure
         was not acyclic), then this is `True`.'''
-    def __init__(self, deductions, k_opt=False, choose_resolution=True):
+    def __init__(self, deductions, k_opt=False, ip_time_limit=None):
         '''Initiates a `ProofStep` instance wrapping deduction. Accepts a set of deductions, and chooses one to use.\n
         If `k_opt` is `True`, it attempt to fill the cell which requires the least amount of knowledge. Otherwise it fills the
         first cell. In that case, if `choose_resolution` is `True`, deduction will be converted to the standard format, 
@@ -172,7 +172,7 @@ class ProofStep:
             # > optimize for minimal k
             prob += pl.lpSum((v for v in isvalue_used))
             # SOLVE IP PROBLEM
-            if prob.solve(pl.PULP_CBC_CMD(msg=0)) == 1: # if solve failed: revert to bruteforce
+            if prob.solve(pl.PULP_CBC_CMD(msg=0,timeLimit=ip_time_limit)) == 1: # if solve failed: revert to bruteforce
                 # CONVERT SOLUTION TO PROOFSTEP
                 for ded in deductions:
                     if pl.value(knowledge_used[ded]) == 1.0:

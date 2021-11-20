@@ -20,6 +20,8 @@ from util import cell_section, local_to_global, global_to_local, diclen
 
 sudoku_app = ConsoleApp(description='INTERACTIVE SUDOKU SOLVER')
 sudoku_app.add_variable(r'k[-_]opt(?:imi[zs]ation)?',ConsoleApp.Patterns.BOOLONOFF,'Should we minimize k in the solving process?')
+sudoku_app.add_variable(r'[iI][pP][-_][tT](?:ime)?(?:[-_]?[lL]im(?:it)?)?',ConsoleApp.Patterns.FLOAT,
+    'How much time should be given to the IP solver in each iteration? Setting to non-positive values will disable the time limit.')
 sudoku_app.add_function(r'set',[(r'row',r'\d'),(r'col(?:umn)?',r'\d:?'),(r'val(?:ue)?',r'\d')],description=
     '''Set the cell given by 'row' and 'column' to value 'value', if possible.''')
 sudoku_app.add_function(r'ban',[(r'cells',r'(?:\d[,;\s]*\d[,;\s]*)+:'),(r'values',r'(?:[,;\s]*\d)*')],description=
@@ -75,6 +77,7 @@ class Sudoku:
         self.filler_deductions = set()
         # stats:
         self.k_opt = k_opt
+        self.ip_time_limit = None
         self.deduction_time = 0
         self.k_opt_time = 0
         self.fill_time = 0
@@ -200,7 +203,7 @@ class Sudoku:
                 self.failed_solves += 1
                 return False
             # DECIDE HOW TO PROVE THIS STEP
-            proofstep = ProofStep(self.filler_deductions, self.k_opt)
+            proofstep = ProofStep(self.filler_deductions, self.k_opt, self.ip_time_limit)
             self.proof.append(proofstep)
             self.k_opt_time += time.time() - timestamp
             timestamp = time.time()
@@ -295,6 +298,20 @@ class Sudoku:
                 print(f"k-optimization: {'ON' if self.k_opt else 'OFF'}")
             elif action == 'set_var' and rname == r'k[-_]opt(?:imi[zs]ation)?':
                 self.k_opt = ConsoleApp.str_to_bool(data)
+                print(f"k-optimization was set to {self.k_opt}")
+            elif action == 'get_var' and rname == r'[iI][pP][-_][tT](?:ime)?(?:[-_]?[lL]im(?:it)?)?':
+                if self.ip_time_limit is None:
+                    print("ip-time-limit is UNLIMITED")
+                else:
+                    print(f"ip-time-limit: {self.ip_time_limit} s")
+            elif action == 'set_var' and rname == r'[iI][pP][-_][tT](?:ime)?(?:[-_]?[lL]im(?:it)?)?':
+                f = float(data)
+                if f <= 0:
+                    self.ip_time_limit = None
+                    print(f"ip-time-limit was set to UNLIMITED")
+                else:
+                    self.ip_time_limit = f
+                    print(f"ip-time-limit was set to {f} s")
             elif action == 'func' and rname == r'stat(?:istic)?s?':
                 file = ConsoleApp.get_text(data['params']['file'])
                 if file != '':
@@ -463,7 +480,7 @@ if __name__ == "__main__":
     if False: # TODO: move this to a different file?
         # solve test
         print("--- Testing solve()")
-        sud = Sudoku(tuples=init_tuples_from_text('''
+        sud = Sudoku(tuples=boardio.init_tuples_from_text('''
         1....847.
         5........
         .4...1.3.

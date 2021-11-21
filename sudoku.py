@@ -17,6 +17,7 @@ import boardio
 from boardio import print
 from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell
 from tracker import CantBe, Consequence, Deduction, IsValue, MustBe, ProofStep
+from graph import print_graph
 from util import cell_section, local_to_global, global_to_local, diclen
 
 sudoku_app = ConsoleApp(description='INTERACTIVE SUDOKU SOLVER')
@@ -208,7 +209,7 @@ class Sudoku:
             return False
         # DECIDE HOW TO PROVE THIS STEP
         if graph:
-            pass # TODO
+            print_graph(self.filler_deductions)
         proofstep = ProofStep(self.filler_deductions, self.k_opt, self.ip_time_limit)
         self.proof.append(proofstep)
         self.k_opt_time += time.time() - timestamp
@@ -254,6 +255,7 @@ class Sudoku:
                     else:
                         print("Solver got stuck at this state:")
                         self.print_status()
+                        break
             if action == 'func' and rname == "": # Attempt solve
                 if self.solve():
                     print("          =========================   SUDOKU COMPLETE   =========================          ")

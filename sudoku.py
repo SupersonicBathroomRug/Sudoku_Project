@@ -52,7 +52,7 @@ class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
 
     # >>> DATA MANIPULATION
-    def __init__(self, board=None, tuples=None, k_opt=False):
+    def __init__(self, board=None, tuples=None, k_opt=False, ip_time_limit=0.5):
         '''Initialize a sudoku either with:\n
         `board`: `list` of `list`s
         >   A matrix representation of the sudoku table, with 0s in empty cells.\n
@@ -77,7 +77,7 @@ class Sudoku:
         self.filler_deductions = set()
         # stats:
         self.k_opt = k_opt
-        self.ip_time_limit = None
+        self.ip_time_limit = ip_time_limit
         self.deduction_time = 0
         self.k_opt_time = 0
         self.fill_time = 0
@@ -235,15 +235,9 @@ class Sudoku:
                 elif data['flags'][r'-?-?a(?:rray)?']:
                     boardio.print_array_board(self.board)
                 elif data['flags'][r'-?-?s(?:mall)?']:
-                    if file == "":
-                        boardio.print_board(self.board)
-                    else:
-                        boardio.print_small_board(self.board)
+                    boardio.print_board(self.board)
                 else:
-                    if file == "":
-                        self.print_status()
-                    else:
-                        builtins.print("ERROR: can't pretty print to a file!")
+                    self.print_status()
                 print.reset()
             elif action == 'func' and rname == r'set':
                 r = int(data['params']['row'])
@@ -373,13 +367,14 @@ class Sudoku:
         print(f"| k-optimization time:     {self.k_opt_time} s")
         print(f"| Fill time:               {self.fill_time} s\n")
         print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}\n")
+        print(f"ip-time-limit:             {'UNLIMITED' if self.ip_time_limit is None else f'{self.ip_time_limit} s'}")
         print(f"| Failed solves:           {self.failed_solves}")
         print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")
         print(f"| Deus ex sets:            {self.deus_ex_sets}\n")
         print(f"Proof steps made:          {len(self.proof)}")
         print(f"| k-optimized steps:       {sum((1 if s.k_opt else 0 for s in self.proof))}")
-        print(f"| Weak k-approximations:   {sum((1 if (s.approximation or (not s.k_opt)) and s.k>8 else 0 for s in self.proof))}")
-        print(f"| Strong k-approximations: {sum((1 if (s.approximation or (not s.k_opt)) and s.k<=8 else 0 for s in self.proof))}")
+        print(f"| Weak k-approximations:   {sum((1 if s.approximation and s.k>8 else 0 for s in self.proof))}")
+        print(f"| Strong k-approximations: {sum((1 if s.approximation and s.k<=8 else 0 for s in self.proof))}")
         print(f"| Maximal k:               {0 if len(self.proof)==0 else max((step.k for step in self.proof))}")
 
     def ban(self, row, col, value, rule, cells_used):

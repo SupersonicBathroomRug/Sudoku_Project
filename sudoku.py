@@ -10,6 +10,7 @@ import builtins
 from sys import argv
 from getopt import getopt
 from itertools import product
+import os.path
 # custom modules
 from consoleapp import ConsoleApp
 import boardio
@@ -45,6 +46,9 @@ sudoku_app.add_function(r'origin(?:al)?|og?|puzzle',[],description=
 sudoku_app.add_function(r'export',[(r'file',ConsoleApp.Patterns.TEXT)],
     r'-?-?n(?:ostats?)?',r'-?-?r(?:aw)?',r'-?-?a(?:rray)?',r'-?-?r(?:ef(?:erence)?)?',r'-?-?[Ii](?:s[Vv]alue)?',description=
     '''Prints information about this session to a file. If --nostats is enabled, statistics will not be printed.''')
+sudoku_app.add_function(r'step',[(r'n',ConsoleApp.Patterns.UINT,'1'),(r'file',ConsoleApp.Patterns.TEXT,'')],r'-?-?graph',r'-?-?proof',description=
+    '''Fill a cell 'n' times. If the '--graph' flag is enabled, print a graph of k-optimization problem in each step to
+'file' (if it is not specified, to the console). If the '--proof' flag is enabled, the ProofStep of the current steps will be printed.''')
 sudoku_app.add_function(r'',[],description=
     '''Attempts to solve the sudoku from this state.''')
 
@@ -181,43 +185,75 @@ class Sudoku:
             self.secpos[k.position[0]][k.value-1][k.position[1]] = deduction
     
     # >>> SOLVERS
-    def solve(self): # TODO: shortcut in case of k_opt==False?
-        '''Attempts to solve this sudoku only using a fixed set of deductions. This set currently is:
-        - only 1 value can be written to `(i,j)`, as all others are present in this row+column+section
-        - `v` can be written only to this cell in this row/column/section, as all other cells are filled/`v` cannot be written in them'''
+    def solve_step(self, graph=False):
+        '''Attempts to fill a single cell of the sudoku using a fixed set of deductions. Return `True` if the sudoku is complete, `False` if
+        the filling attempt failed, and `None` otherwise. If `graph` is True, a graph of the k-optimization problem will be printed using `print`.'''
+        if self.missing == 0:
+            return True
         timestamp = time.time()
-        while self.missing > 0:
-            made_deduction = True
-            # MAKE DEDUCTIONS WHILE POSSIBLE
-            while made_deduction:
-                made_deduction = False
-                only_one_value(self)
-                only_this_cell(self)
-                made_deduction |= nake_pair(self)
-                made_deduction |= hidden_pair(self)
+        made_deduction = True
+        # MAKE DEDUCTIONS WHILE POSSIBLE
+        while made_deduction:
+            made_deduction = False
+            only_one_value(self)
+            only_this_cell(self)
+            made_deduction |= nake_pair(self)
+            made_deduction |= hidden_pair(self)
 
-            self.deduction_time += time.time() - timestamp
-            timestamp = time.time()
-            # EXIT IF NECESSARY
-            if len(self.filler_deductions) == 0:
-                self.failed_solves += 1
-                return False
-            # DECIDE HOW TO PROVE THIS STEP
-            proofstep = ProofStep(self.filler_deductions, self.k_opt, self.ip_time_limit)
-            self.proof.append(proofstep)
-            self.k_opt_time += time.time() - timestamp
-            timestamp = time.time()
-            # FILL THE SELECTED CELL
-            self[proofstep.position] = proofstep.value
-            self.fill_time += time.time() - timestamp
-            timestamp = time.time()  
-        return True
+        self.deduction_time += time.time() - timestamp
+        timestamp = time.time()
+        # EXIT IF NECESSARY
+        if len(self.filler_deductions) == 0:
+            self.failed_solves += 1
+            return False
+        # DECIDE HOW TO PROVE THIS STEP
+        if graph:
+            pass # TODO
+        proofstep = ProofStep(self.filler_deductions, self.k_opt, self.ip_time_limit)
+        self.proof.append(proofstep)
+        self.k_opt_time += time.time() - timestamp
+        timestamp = time.time()
+        # FILL THE SELECTED CELL
+        self[proofstep.position] = proofstep.value
+        self.fill_time += time.time() - timestamp
+        return None
+
+    def solve(self): # TODO: shortcut in case of k_opt==False?
+        '''Attempts to solve this sudoku only using a fixed set of deductions. Return `True` if the sudoku has been solved, and `False` if the
+        solve failed.'''
+        answer = None
+        while answer is None:
+            answer = self.solve_step()
+        return answer
 
     def interactive_solve(self):
         '''Interactive solver tool. Type `'h'` or `'help'` for help.'''
         print("   INTERACTIVE SOLVER STARTED  ")
         boardio.print_board(self.board)
         for action, rname, data in sudoku_app:
+            if action == 'func' and rname == "step":
+                file = ConsoleApp.get_text(data['params']['file'])
+                base, ext = os.path.splitext(file)
+                if file != '':
+                    if data['flags'][r'-?-?graph']:
+                        print(f"Printing graphs to file {base+'(i)'+ext}.")
+                    else:
+                        print("WARNING: '--graph' flag is OFF, no graph printing will happen.")
+                for i in range(int(data['params']['n'])):
+                    print.set_file((base+f'({i})'+ext) if file != '' else '')
+                    ret = self.solve_step(data['flags'][r'-?-?graph'])
+                    print.reset()
+                    if ret is None:
+                        if data['flags'][r'-?-?proof']:
+                            self.print_proof(len(self.proof)-1)
+                        else:
+                            print(f"Step #{i} complete, there are still empty cells.")
+                    elif ret:
+                        print("          =========================   SUDOKU COMPLETE   =========================          ")
+                        boardio.print_board(self.board)
+                    else:
+                        print("Solver got stuck at this state:")
+                        self.print_status()
             if action == 'func' and rname == "": # Attempt solve
                 if self.solve():
                     print("          =========================   SUDOKU COMPLETE   =========================          ")
@@ -366,8 +402,8 @@ class Sudoku:
         print(f"| Deduction time:          {self.deduction_time} s")
         print(f"| k-optimization time:     {self.k_opt_time} s")
         print(f"| Fill time:               {self.fill_time} s\n")
-        print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}\n")
-        print(f"ip-time-limit:             {'UNLIMITED' if self.ip_time_limit is None else f'{self.ip_time_limit} s'}")
+        print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}")
+        print(f"ip-time-limit:             {'UNLIMITED' if self.ip_time_limit is None else f'{self.ip_time_limit} s'}\n")
         print(f"| Failed solves:           {self.failed_solves}")
         print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")
         print(f"| Deus ex sets:            {self.deus_ex_sets}\n")

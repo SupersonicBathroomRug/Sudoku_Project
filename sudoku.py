@@ -361,14 +361,14 @@ class Sudoku:
                 elif data['flags'][r'-?-?a(?:rray)?']:
                     boardio.print_array_board(self.starting_board)
                 else:
-                    boardio.print_small_board(self.starting_board)
+                    boardio.print_board(self.starting_board)
                 print("FINAL BOARD:")
                 if data['flags'][r'-?-?r(?:aw)?']:
                     boardio.print_raw_board(self.board)
                 elif data['flags'][r'-?-?a(?:rray)?']:
                     boardio.print_array_board(self.board)
                 else:
-                    boardio.print_small_board(self.board)
+                    boardio.print_board(self.board)
                 print("PROOF:")
                 self.print_proof(isvalue=data['flags'][r'-?-?[Ii](?:s[Vv]alue)?'], reference=data['flags'][r'-?-?r(?:ef(?:erence)?)?'])
                 if not data['flags'][r'-?-?n(?:ostats?)?']:

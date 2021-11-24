@@ -14,7 +14,7 @@ from itertools import product
 from consoleapp import ConsoleApp
 import boardio
 from boardio import print
-from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell
+from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell, line_square, square_line
 from tracker import CantBe, Consequence, Deduction, IsValue, MustBe, ProofStep
 from util import cell_section, local_to_global, global_to_local, diclen
 
@@ -83,7 +83,7 @@ class Sudoku:
         for row, col, val in tuples:
             self[row, col] = val
         self.starting_board = [[self.board[i][j] for j in range(9)] for i in range(9)]
-    
+
     def __setitem__(self, key, val):
         '''Fill in the given cell with the given value.\\
         Take note of the new restricions this causes, and stop tracking this value & position further.'''
@@ -128,7 +128,7 @@ class Sudoku:
 
     def __getitem__(self, key):
         return self.board[key[0]][key[1]]
-    
+
     # >>> STORING DEDUCTIONS
     def make_deduction(self, knowledge, rule, reasons=None):
         '''Store a deduction which yields `knowledge` applying `rule` to `Knowlegde` instances `reasons`.\\
@@ -152,7 +152,7 @@ class Sudoku:
             else:
                 self._store_new_deduction(Deduction([cons], knowledge))
                 return True
-    
+
     def _get_knowledge(self, k):
         '''Given a Knowledge instance `k`, returns the data stored at its position, corresponding to its value.\\
         This means it either returns a `Deduction` instance (if this knowledge has been already acquired), and `None` otherwise.'''
@@ -164,7 +164,7 @@ class Sudoku:
             return self.colpos[k.position[0]][k.value-1][k.position[1]]
         elif k.coordtype == "secpos":
             return self.secpos[k.position[0]][k.value-1][k.position[1]]
-    
+
     def _store_new_deduction(self, deduction):
         '''Stores a given deduction in the correct place.'''
         k = deduction.result
@@ -176,7 +176,7 @@ class Sudoku:
             self.colpos[k.position[0]][k.value-1][k.position[1]] = deduction
         elif k.coordtype == "secpos":
             self.secpos[k.position[0]][k.value-1][k.position[1]] = deduction
-    
+
     # >>> SOLVERS
     def solve(self): # TODO: shortcut in case of k_opt==False?
         '''Attempts to solve this sudoku only using a fixed set of deductions. This set currently is:
@@ -192,6 +192,8 @@ class Sudoku:
                 only_this_cell(self)
                 made_deduction |= nake_pair(self)
                 made_deduction |= hidden_pair(self)
+                made_deduction |= square_line(self)
+                made_deduction |= line_square(self)
 
             self.deduction_time += time.time() - timestamp
             timestamp = time.time()
@@ -207,7 +209,7 @@ class Sudoku:
             # FILL THE SELECTED CELL
             self[proofstep.position] = proofstep.value
             self.fill_time += time.time() - timestamp
-            timestamp = time.time()  
+            timestamp = time.time()
         return True
 
     def interactive_solve(self):
@@ -251,7 +253,7 @@ class Sudoku:
                     continue
                 if self.allowed[r][c][v] is not None:
                     print(f"ERROR: {v} is not allowed at ({r}, {c}); allowed numbers: {self.allowed[r][c].allowed()}")
-                    continue  
+                    continue
                 self[r,c] = v
                 self.deus_ex_sets += 1
                 print(f"({r}, {c}) has been set to {v}.")
@@ -288,7 +290,7 @@ class Sudoku:
                 # Execute printing:
                 print.set_file(file)
                 self.print_proof(start, min(end, len(self.proof)),
-                    isvalue=data['flags'][r'-?-?[Ii](?:s[Vv]alue)?'], 
+                    isvalue=data['flags'][r'-?-?[Ii](?:s[Vv]alue)?'],
                     reference=data['flags'][r'-?-?r(?:ef(?:erence)?)?'])
                 print.reset()
             elif action == 'get_var' and rname == r'k[-_]opt(?:imi[zs]ation)?':
@@ -328,16 +330,16 @@ class Sudoku:
                 print.reset()
             elif action == 'func' and rname == r'og?|origin(?:al)?|puzzle':
                 boardio.print_board(self.starting_board)
-                
+
     # >>> UTILITY
     def is_unique(self):
         '''Checks whether this sudoku has a unique solution. See `check_unicity()`.'''
         return check_unicity(self.board, False)
-    
+
     def print_status(self):
         '''Prints a detailed representation of the current state of the puzzle. Each cell contains which numbers can be written there.'''
         boardio.print_detailed_board(self.board, [[self.allowed[r][c].allowed() for c in range(9)] for r in range(9)])
-    
+
     def proof_to_string(self, idx, isvalue=False, reference=False):
         '''Converts the data of the ith proof step to a string.'''
         ret = f"[#{idx}, k={self.proof[idx].k}] {self.proof[idx].position} is {self.proof[idx].value}, because:\n\t"
@@ -382,7 +384,7 @@ def check_unicity(board_to_solve, verbose=False):
     -   `[solution_no1, solution_no2]` if there are at least two solutions.'''
     b=np.array(board_to_solve)
     sols=[]
-    
+
     def nextcell(row,col):
         '''Returns the coordinates of the next cell in reading order. ISN'T CYCLIC, doesn't work for the last cell.'''
         x=row*9+col+1
@@ -397,7 +399,7 @@ def check_unicity(board_to_solve, verbose=False):
             return len(sols)>1
         if b[row][col]!=0: # if cell is already filled, skip to the next one
             return dfs(*nextcell(row,col))
-            
+
         # Decide which numbers can be written in this cell without causing a conflict with previously filled cells:
         possible=[True for i in range(9)]
         for i in range(9): # discard numbers present in this row
@@ -420,9 +422,9 @@ def check_unicity(board_to_solve, verbose=False):
                     return True
         b[row][col]=0
         return False
-        
+
     dfs(0,0)
-    return (len(sols) == 1), sols 
+    return (len(sols) == 1), sols
 
 if __name__ == "__main__":
     _opts, args = getopt(argv[1:],"hepl:",["link=","editor","passive"])
@@ -450,14 +452,14 @@ if __name__ == "__main__":
         else:
             su.interactive_solve()
     else:
-        sud = Sudoku(board=[[0, 0, 8, 0, 0, 0, 6, 0, 3], 
-            [0, 2, 0, 0, 0, 9, 0, 0, 0], 
-            [0, 0, 0, 8, 0, 0, 4, 5, 0], 
-            [8, 5, 6, 0, 7, 0, 0, 0, 0], 
-            [0, 0, 4, 0, 0, 0, 5, 0, 0], 
-            [0, 0, 0, 0, 6, 0, 8, 9, 7], 
-            [0, 8, 7, 0, 0, 6, 0, 0, 0], 
-            [0, 0, 0, 3, 0, 0, 0, 8, 0], 
+        sud = Sudoku(board=[[0, 0, 8, 0, 0, 0, 6, 0, 3],
+            [0, 2, 0, 0, 0, 9, 0, 0, 0],
+            [0, 0, 0, 8, 0, 0, 4, 5, 0],
+            [8, 5, 6, 0, 7, 0, 0, 0, 0],
+            [0, 0, 4, 0, 0, 0, 5, 0, 0],
+            [0, 0, 0, 0, 6, 0, 8, 9, 7],
+            [0, 8, 7, 0, 0, 6, 0, 0, 0],
+            [0, 0, 0, 3, 0, 0, 0, 8, 0],
             [2, 0, 3, 0, 0, 0, 1, 0, 0]])
         sud.interactive_solve()
     if False: # TODO: move this to a different file?

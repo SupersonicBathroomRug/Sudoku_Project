@@ -113,47 +113,48 @@ Lényegében egy `dict`, csak gyorsan le lehet belőle kérdezni néhány gyakor
 Alapvetően olyan funkcióban használjuk, hogy egy `diclen` mindig egy olyan jellegű kérdésre ad választ, hogy *"ebben a sorban ez a szám hova mehet?"* vagy *"erre a mezőre milyen szám kerülhet még?"*. A `None` jelzi, hogy még az adott pozíció/szám megengedett, egyébként pedig a tárolt érték (egy `Knowledge` vagy `Deduction` példány) mondja meg, hogy *miért* nem megengedett ez.
 
 ## Fájlok leírásai
-`boardio.py`
-> Sudoku feladványok (táblázatok) beolvasásával és kiíratásával foglalkozik.
-> - táblázatok fancy és/vagy részletes kiíratása
-> - szöveges formában reprezentált feladványok parse-olása
-> - feladvány internetről letöltése
-> - konzolos sudoku editor a `Getch.py` segítségével
+#### `boardio.py`
+Sudoku feladványok (táblázatok) beolvasásával és kiíratásával foglalkozik.
+- táblázatok fancy és/vagy részletes kiíratása
+- szöveges formában reprezentált feladványok parse-olása
+- feladvány internetről letöltése
+- konzolos sudoku editor a `Getch.py` segítségével
 
-`Getch.py`
-> Ad egy `getch` függvényt, amivel a C-hez hasonlóan be lehet olvasni egy (1) karaktert egyszerre (pythonban ez valamiért igen nehéz). Sajnos a `Ctrl+C`-ből a `Ctrl`-t is egy karakternek olvassa be, így mikor ez bekér, nem lehet interrputolni egyszerűen.
+#### `Getch.py`
+Ad egy `getch` függvényt, amivel a C-hez hasonlóan be lehet olvasni egy (1) karaktert egyszerre (pythonban ez valamiért igen nehéz). Sajnos a `Ctrl+C`-ből a `Ctrl`-t is egy karakternek olvassa be, így mikor ez bekér, nem lehet interrputolni egyszerűen.
 
-`consoleapp.py`
-> Alapvetően azt oldja meg, hogy az interaktív megoldónak tudjunk olyan parancsokat adni, hogy `ban 1,4 2,5: 3, 9`, `set 1 3 2`, `help`, `print --small` vagy `proof --reference 4:5`, ám ezt a funkcionalitást a konkrét feladattól függetlenül, általánosan oldja meg.
-> 
-> Ad tehát egy `ConsoleApp` osztályt, amivel könnyen lehet a fenti jellegű parancsokat parsolni, és kinyerni belőle a paramétereket valamilyen standard formátumban. Nagyrészt regexekre épül.
+#### `consoleapp.py`
+Alapvetően azt oldja meg, hogy az interaktív megoldónak tudjunk olyan parancsokat adni, hogy `ban 1,4 2,5: 3, 9`, `set 1 3 2`, `help`, `print --small` vagy `proof --reference 4:5`, ám ezt a funkcionalitást a konkrét feladattól függetlenül, általánosan oldja meg.
+ 
+Ad tehát egy `ConsoleApp` osztályt, amivel könnyen lehet a fenti jellegű parancsokat parsolni, és kinyerni belőle a paramétereket valamilyen standard formátumban. Nagyrészt regexekre épül.
 
-`main.py`
-> Néhány konkrét érdekes feladvány gyűjteménye.
+#### `main.py`
+Néhány konkrét érdekes feladvány gyűjteménye.
 
-`deduction_rules.py`
-> Különböző következtetési módszerek implementációinak gyűjteménye. A sudoku-oldás logikai része itt található. Minden következtetési módszernek saját függvénye van.
+#### `deduction_rules.py`
+Különböző következtetési módszerek implementációinak gyűjteménye. A sudoku-oldás logikai része itt található. Minden következtetési módszernek saját függvénye van.
 
-`util.py`
-> Segédfüggvényeket- és osztályokat tartalmaz. A segédfüggvények nagyrészt koordináta-konverziókal foglalkoznak.
+#### `util.py`
+Segédfüggvényeket- és osztályokat tartalmaz. A segédfüggvények nagyrészt koordináta-konverziókal foglalkoznak.
 
-`tracker.py`
-> Objektum-orientált megoldást nyújt a bizonyítások elmentésére és kezelésére a `Knowledge`, `Consequence`, `Deduction` és `ProofStep` osztályokon, illetve ezek néhány leszármazottján keresztül. Nagy része adminisztratív jellegű, a kód komoly része foglalkozik szép kiíratással. 
-> 
-> A **k-optimalizáció** is itt van implementálva, ahhoz egy relatíve nagy rész tartozik (`ProofStep` segédfüggvényei és `__init__`-je).
+#### `tracker.py`
+Objektum-orientált megoldást nyújt a bizonyítások elmentésére és kezelésére a `Knowledge`, `Consequence`, `Deduction` és `ProofStep` osztályokon, illetve ezek néhány leszármazottján keresztül. Nagy része adminisztratív jellegű, a kód komoly része foglalkozik szép kiíratással. 
 
-`graph.py`
-> Debug kiírató függvényt - `print_graph` - tartalmaz, ami egy szép reprezentációját adja egy adott lépésben a lehetséges bizonyítási lépések közül a relevánsaknak. Mutatja, hogyan függnek egymástól a különböző életben lévő `Knowledge`, `Consequence` és `Deduction` példányok.
+A **k-optimalizáció** is itt van implementálva, ahhoz egy relatíve nagy rész tartozik (`ProofStep` segédfüggvényei és `__init__`-je).
 
-`sudoku.py`
-> A legfontosabb fájl a projektben, **ez a futtatható állomány**. Ez implementálja a `Sudoku` osztályt. Három feladata van:
-> - az interaktív megoldó itt van implementálva
-> - a megoldással foglalkozó legmagasabb szintű függvények itt vannak leírva; ez a rész definiálja, mit is csinálunk a többi eszközünkkel pontosan
-> - a konzolról futtathatóságot ez a fájl biztosítja
+#### `graph.py`
+Debug kiírató függvényt - `print_graph` - tartalmaz, ami egy szép reprezentációját adja egy adott lépésben a lehetséges bizonyítási lépések közül a relevánsaknak. Mutatja, hogyan függnek egymástól a különböző életben lévő `Knowledge`, `Consequence` és `Deduction` példányok.
+
+#### `sudoku.py`
+A legfontosabb fájl a projektben, **ez a futtatható állomány**. Ez implementálja a `Sudoku` osztályt. Három feladata van:
+- az interaktív megoldó itt van implementálva
+- a megoldással foglalkozó legmagasabb szintű függvények itt vannak leírva; ez a rész definiálja, mit is csinálunk a többi eszközünkkel pontosan
+- a konzolról futtathatóságot ez a fájl biztosítja
 
 ## Ábra
-Az ábrában a `0`-k jelölik az olyan következtetéseket, melyek beíráshoz vezetnek. Az `O`-k jelölik a `Deduction`-öket, majd tőlük balra-lent találhatók a `Consequence`-ek, amik a lehetséges indoklásokat tárólják (ezeket a hozzájuk tartozó szabály első betűje jelöli). Ők csatlakoznak azokhoz az információkhoz, amiket ők használnak, azaz lefele arra küldenek ágatak, amik nekik kellenek. Az ábra alján a `*`-ok jelölik az elemi információkat.
-```                                                                                    ┌─┬O                              
+Az ábrában a `0`-k jelölik az olyan következtetéseket, melyek beíráshoz vezetnek. Az `O`-k jelölik a `Deduction`-öket, majd tőlük balra-lent találhatók a `Consequence`-ek, amik a lehetséges indoklásokat tárolják (ezeket a hozzájuk tartozó szabály első betűje jelöli). Ők csatlakoznak azokhoz az információkhoz, amiket ők használnak, azaz lefele arra küldenek ágatak, amik nekik kellenek. Az ábra alján a `*`-ok jelölik az elemi információkat.
+```
+                                                                                    ┌─┬0                              
                                                                                     a a                               
                                                                                     │ │                               
  ┌─────────────┬───┬───┬─────┬───────────────────────────────────────────┬─┬─┬──────┘ │                               
@@ -167,7 +168,7 @@ Az ábrában a `0`-k jelölik az olyan következtetéseket, melyek beíráshoz v
  ┌─────────┬───┬─┬─┬───┬─┬─┬─┬────────────────────────────────────────────┘││  │ │ │ │                                
  ┌─────────┬─────┬─────┬───┬─────────────────┬─────────────┬─┬─┬─┬─┬─┬─┬────┘  │ │ │ │                                
  │         │   │ │ │   │ │ │ │               │             │ │ │ │ │ │ │   │   │ │ │ │                                
- │         │   │ │ │   │ │ │ │              ┌O             │┌O │┌O┌O │ │   │  ┌O┌O │ │                    ┌O        ┌O
+ │         │   │ │ │   │ │ │ │              ┌O             │┌O │┌O┌O │ │   │  ┌O┌O │ │                    ┌0        ┌0
  │         │   │ │ │   │ │ │ │              n              │n  │n n  │ │   │  n n  │ │                    r         s 
  │         │   │ │ │   │ │ │ │              │              ││  ││ │  │ │   │  │ │  │ │                    │         │ 
  ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬─┬─┬┘              ││  ││ │  │ │   │  │ │  │ │                    │         │ 
@@ -196,7 +197,7 @@ Az ábrában a `0`-k jelölik az olyan következtetéseket, melyek beíráshoz v
  │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬──────────────────────────────────────────────────────┘ │   
  │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬────────────────────────────────────────────────────────┘   
  │         │ │ │ │ │   │ │ │ │ │ │ │ │ │       │ │ │ │ │ │                 │               │                 │        
- │      ┌O │ │ │ │ │┌O │ │ │ │ │┌O┌O┌O┌O       │┌O┌O┌O┌O │                 │               │    ┌O┌O┌O       │        
+ │      ┌0 │ │ │ │ │┌0 │ │ │ │ │┌O┌O┌O┌O       │┌O┌O┌O┌O │                 │               │    ┌0┌0┌0       │        
  │      s  │ │ │ │ │s  │ │ │ │ │n n n n        │n n n n  │                 │               │    a s s        │        
  │      │  │ │ │ │ ││  │ │ │ │ ││ │ │ │        ││ │ │ │  │                 │               │    │ │ │        │        
  ┌─┬─┬─┬┘  │ │ │ │ ││  │ │ │ │ ││ │ │ │        ││ │ │ │  │                 │               │    │ │ │        │        

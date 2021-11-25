@@ -413,7 +413,9 @@ class Sudoku:
         print(f"| k-optimized steps:       {sum((1 if s.k_opt else 0 for s in self.proof))}")
         print(f"| Weak k-approximations:   {sum((1 if s.approximation and s.k>8 else 0 for s in self.proof))}")
         print(f"| Strong k-approximations: {sum((1 if s.approximation and s.k<=8 else 0 for s in self.proof))}")
-        print(f"| Maximal k:               {0 if len(self.proof)==0 else max((step.k for step in self.proof))}")
+        print(f"| Maximal k:               {max((step.k for step in self.proof),default=0)}")
+        print(f"| Maximal optimized k:     {max((step.k for step in self.proof if step.k_opt),default=0)}")
+        print(f"| Mean k:                  {0 if len(self.proof)==0 else sum((step.k for step in self.proof))/len(self.proof)}")
 
     def ban(self, row, col, value, rule, cells_used):
         '''Ban `value` from `(row, col)` using `rule` (`str`  identifier) applied to `cells_used` (`list` of `Knowledge`/`Deduction` instances).'''

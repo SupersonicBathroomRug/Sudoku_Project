@@ -25,7 +25,7 @@ class MyPrint:
         if path is None or path == '':
             self.file = sys.stdout
         else:
-            self.file = open(path, 'w')
+            self.file = open(path, 'w', encoding='utf-8')
     
     def reset(self):
         '''Return to printing to the console.'''
@@ -159,19 +159,6 @@ def print_array_board(board):
     '''Print the board in an array format'''
     for i, line in enumerate(board):
         print("[[" if i==0 else " [",', '.join((str(i) for i in line)),'],' if i < 8 else ']]',sep='')
-
-def print_small_board(board):
-    '''Basically print_board without a selection, and uglier.'''
-    for i, line in enumerate(board):
-        if i%3 == 0:
-            print('+---------+---------+---------+')
-        for j in range(9):
-            if j%3==0:
-                print("|",end="")
-            print(f" {' ' if board[i][j]==0 else board[i][j]} ",end="")
-        print("|")
-    print('+---------+---------+---------+')
-
 
 if __name__ == "__main__":
     # init_tuples_from_text test

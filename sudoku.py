@@ -390,7 +390,7 @@ class Sudoku:
     def proof_to_string(self, idx, isvalue=False, reference=False):
         '''Converts the data of the ith proof step to a string.'''
         ret = f"[#{idx}, k={self.proof[idx].k}, k-opt={self.proof[idx].k_opt}, approx={self.proof[idx].approximation}]\n"
-        ret += f"    {self.proof[idx].position} is {self.proof[idx].value}, because:\n\t"
+        ret += f"  {self.proof[idx].position} is {self.proof[idx].value}, because:\n\t"
         ret += "\n\t".join(self.proof[idx].to_strings(reference,isvalue))
         return ret
 

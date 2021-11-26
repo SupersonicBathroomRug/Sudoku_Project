@@ -1,5 +1,7 @@
 from itertools import product
-from tracker import MustBe, local_to_global
+from tracker import MustBe
+from util import cell_section, local_to_global
+
 
 def only_one_value(sudoku):
     """RULE: only 1 value can be written to this cell, as all others are present in this row+column+section"""
@@ -79,10 +81,10 @@ def nake_pair(sudoku):
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
         nake_pairs = search_for_nake_pairs(allowed_numbers)
         for pair in nake_pairs:
-            current_naked_cell1 = cells_to_check[pair[0]]
-            current_naked_cell2 = cells_to_check[pair[1]]
-            deleted_numbers = sudoku.allowed[current_naked_cell1[0]][current_naked_cell1[1]].allowed()
-            cells_used = sudoku.allowed[current_naked_cell1[0]][current_naked_cell1[1]].notNones()+sudoku.allowed[current_naked_cell2[0]][current_naked_cell2[1]].notNones()
+            cell1 = cells_to_check[pair[0]]
+            cell2 = cells_to_check[pair[1]]
+            deleted_numbers = sudoku.allowed[cell1[0]][cell1[1]].allowed()
+            cells_used = sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
             for cell in cells_to_check:
                 if cell not in (cells_to_check[pair[0]],cells_to_check[pair[1]]):
                     made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"nake_pair",cells_used)
@@ -93,7 +95,7 @@ def nake_pair(sudoku):
 def hidden_pair(sudoku):
     """RULE: if only v and w has number x and y then delete every number from v and w except x and y."""
     def search_hidden_pairs(elems):
-        where_can_go = {i:[] for i in range(1,10)} # i-th number in which indeces of elems can go
+        where_can_go = {i:[] for i in range(1,10)} # i-th number in which indices of elems can go
         for idx,elem in enumerate(elems):
             for num in elem:
                 where_can_go[num].append(idx)
@@ -119,3 +121,50 @@ def hidden_pair(sudoku):
         return made_deduction
 
     return _apply_for_nines(search_and_ban_in_subset)
+
+def square_line(sudoku):
+    '''RULE: if number can only go in one line within square ban that number from rest of the line'''
+    made_deduction=False
+    for sec in range(9):
+        for val in range(9):
+            places=sudoku.secpos[sec][val].allowed()
+            #for row
+            if len(set((i for i,j in places)))==1:
+                row,_=local_to_global(sec,*places[0])
+                reason=[info for key, info in sudoku.secpos[sec][val].items() if key[0] != row and info is not None]
+                for col in range(9):
+                    if col//3!=sec%3: #trust me, I'm an engineer
+                        made_deduction|=sudoku.ban(row,col,val+1,"square_row",reason)
+            #for col
+            if len(set((j for i,j in places)))==1:
+                _,col=local_to_global(sec,*places[0])
+                reason = [info for key, info in sudoku.secpos[sec][val].items() if key[1] != col and info is not None]
+                for row in range(9):
+                    if row//3!=sec//3:
+                        made_deduction|=sudoku.ban(row,col,val+1,"square_col",reason)
+    return made_deduction
+
+def line_square(sudoku):
+    '''RULE: if number can only go in one square within a line ban that number from rest of the line'''
+    made_deduction=False
+    for row in range(9):
+        for val in range(9):
+            places=sudoku.rowpos[row][val].allowed()
+            if len(set(i//3 for i in places))==1:
+                sec=cell_section(row,places[0])
+                reason=[info for key, info in sudoku.rowpos[row][val].items() if key // 3 != places[0] // 3 and info is not None]
+                for i,j in product(range(3),range(3)):
+                    r,c=local_to_global(sec,i,j)
+                    if r!=row:
+                        made_deduction|=sudoku.ban(r,c,val+1,"row_square",reason)
+    for col in range(9):
+        for val in range(9):
+            places=sudoku.colpos[col][val].allowed()
+            if len(set(i//3 for i in places))==1:
+                sec=cell_section(places[0],col)
+                reason=[info for key, info in sudoku.rowpos[col][val].items() if key // 3 != places[0] // 3 and info is not None]
+                for i,j in product(range(3),range(3)):
+                    r,c=local_to_global(sec,i,j)
+                    if c!=col:
+                        made_deduction|=sudoku.ban(r,c,val+1,"col_square",reason)
+    return made_deduction

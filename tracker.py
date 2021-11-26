@@ -76,13 +76,21 @@ class Consequence:
         elif self.rule == 'rowpos':
             return 'because this number can only go here in its row'
         elif self.rule == 'colpos':
-            return 'because this number can only go here in its column'
+            return 'because this number can only go here in its col'
         elif self.rule == 'secpos':
-            return 'because this number can only go here in its 3x3 square'
+            return 'because this number can only go here in its square'
         elif self.rule == 'nake_pair':
             return 'because of nake_pair' # TODO
         elif self.rule == 'hidden_pair':
             return 'because of hidden_pair' # TODO
+        elif self.rule == 'square_row':
+            return 'because [this number can only go in this row within a square] this number cannot go elsewhere in this row'
+        elif self.rule == 'square_col':
+            return 'because [this number can only go in this col within a square] this number cannot go elsewhere in this col'
+        elif self.rule == 'row_square':
+            return 'because [this number can only go in this square within its row] this number cannot go in other rows in this square'
+        elif self.rule == 'col_square':
+            return 'because [this number can only go in this square within its col] this number cannot go in other cols in this square'
         else:
             return 'because UNDEFINED RULE'
     

@@ -57,6 +57,8 @@ Minden ciklusban 1 számot szeretnénk a táblázatba beírni. Ehhez a beírás 
 
 Miután nem tudtunk új következtetést levonni, kiválasztunk 1 olyan következtetést, ami azt mondja, hogy *"ide ezt kell írni"*, és végrehajtjuk. Ha nincs *k-optimalizáció*, ezt bután tesszük meg, egyébként pedig kicsit gondolkodunk, hogy a lehető legjobbat válaszzuk. Miután megtörtént a beírás, elkezdünk újra ismeretlen következtetéseket keresni, és megy tovább a ciklus.
 
+Ennél persze az egész kicsit bonyolultabb. A program gyorsítása kedvéért elérhető két beállítás (`greedy` és `reset-always`), amik egy-két részét kivágják a fenti kódnak. Ha a `reset_always` be van kapcsolva, akkor bármelyik olyan következtetés után, ami nem azt mondja, hogy valamit be kell írni, a következő következtetés keresését nem inne fogja folytatni a program, hanem visszaugrik a legegyszerűbb típusú következtetésekhez, és onnan indul elölről. Ha a `greedy` be van kapcsolva, akkor amikor talál egy olyan következtetést, ami egy mező kitöltését vonja maga után, akkor megszakítja a következtetés-keresést, és beírja a most talált számot. Persze ha be van kapcsolva a *k-optimalizáció*, akkor ez igen buta dolog lenne, így ebben az esetben a megszakításnak az plusz feltétele, hogy a következtetés csak "elemi" dolgokat használjon, azaz hogy minden, amire támaszkodik az `Knowledge` példány legyen (ez pedig jelenleg azt jelenti, hogy `IsValue` példány, továbbá a 4 legalapvetőbb szabály egyikéről van szó, és `k<=8` lesz).
+
 ### Néhány szó a bizonyításokban használt adatstruktúrákról
 #### __Indexelés__
 A sorokat fentről lefele, az oszlopokat balról jobbra számozzuk 0-tól 8-ig. Az `(r, c)` koordinátában az első mező jelöli a sort, a második az oszlopot.

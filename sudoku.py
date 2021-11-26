@@ -14,6 +14,7 @@ from itertools import product
 import os.path
 # custom modules
 from consoleapp import ConsoleApp
+from consolestyle import fclr, style
 import boardio
 from boardio import print
 from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell, line_square, square_line
@@ -21,7 +22,7 @@ from tracker import CantBe, Consequence, Deduction, IsValue, Knowledge, MustBe, 
 from graph import print_graph
 from util import cell_section, local_to_global, global_to_local, diclen
 
-sudoku_app = ConsoleApp(description='INTERACTIVE SUDOKU SOLVER')
+sudoku_app = ConsoleApp(description=f'{style.BOLD}INTERACTIVE SUDOKU SOLVER{style.UNBOLD}')
 # VARIABLES
 sudoku_app.add_variable(r'k[-_]opt(?:imi[zs]ation)?',ConsoleApp.Patterns.BOOLONOFF,
     'Should we minimize k in the solving process?')
@@ -274,8 +275,10 @@ class Sudoku:
 
     def interactive_solve(self):
         '''Interactive solver tool. Type `'h'` or `'help'` for help.'''
-        print("   INTERACTIVE SOLVER STARTED  ")
+        print(f"{fclr.RED+style.BOLD}   INTERACTIVE SOLVER STARTED  {fclr.ENDC}")
+        print(style.BOLD, end='')
         boardio.print_board(self.board)
+        print(style.UNBOLD, end='')
         for action, rname, data in sudoku_app:
             if action == 'func' and rname == "step":
                 file = ConsoleApp.get_text(data['params']['file'])
@@ -295,7 +298,7 @@ class Sudoku:
                         else:
                             print(f"Step #{i} complete, there are still empty cells.")
                     elif ret:
-                        print("          =========================   SUDOKU COMPLETE   =========================          ")
+                        print(f"{fclr.RED+style.BOLD}          =========================   SUDOKU COMPLETE   =========================          {fclr.ENDC}")
                         boardio.print_board(self.board)
                     else:
                         print("Solver got stuck at this state:")
@@ -303,7 +306,7 @@ class Sudoku:
                         break
             if action == 'func' and rname == "": # Attempt solve
                 if self.solve():
-                    print("          =========================   SUDOKU COMPLETE   =========================          ")
+                    print(f"{fclr.RED+style.BOLD}          =========================   SUDOKU COMPLETE   =========================          {fclr.ENDC}")
                     boardio.print_board(self.board)
                 else:
                     print("Solver got stuck at this state:")

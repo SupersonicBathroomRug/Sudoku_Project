@@ -4,7 +4,7 @@
 # ==============================================================
 
 import re
-from enum import Enum
+from consolestyle import fclr, style
 class ConsoleApp:
     '''Each instance of this class is a textual input parser, which makes it easy to interpret variable queries, variable setting commands,
     and function calls. When iterated over (or when `.input()` is called), it requests input from `stdin` (with a custom prompt), and returns 
@@ -51,7 +51,7 @@ class ConsoleApp:
     _kwargs_pattern = re.compile(r'''(?:\s+\w+=(?:[^'"\s]\S*|'.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*")[,;]{0,1})*\s*$''')
 
     def __init__(self, cursor='> ', reply_to_nonsense='', help_cmd='help', exit_cmd=r'quit|exit', 
-        description=None, welcome_text="<Type 'help' for help.>"):
+        description=None, welcome_text=f"{style.ITALIC}Type 'help' for help.{style.UNITALIC}"):
         '''`cursor`: `str`
         >   String displayed in the input prompt.\n
         `reply_to_nonsense`: `str`
@@ -126,7 +126,9 @@ class ConsoleApp:
             self.started = True
             if self.welcome_text is not None and self.welcome_text != '':
                 print(self.welcome_text)
-        return self.parse(input(self.cursor))
+        i = input(fclr.GREEN+self.cursor)
+        print(fclr.DEFAULT, end='')
+        return self.parse(i)
 
     def parse(self, string):
         '''Parse a string and decode it into a variable assignment or a function call.\n
@@ -230,24 +232,25 @@ class ConsoleApp:
         '''Display help for the app if `*args` is empty, otherwise for the given variables and functions.'''
         if len(args) == 0:
             if self.description is not None and self.description != '':
-                print(self.description)
-            print('===VARIABLES===')
+                print(fclr.RED, self.description, fclr.DEFAULT, sep='')
+            print(f"To set a variables value, type {style.ITALIC}<variable name>=<value>{style.ENDC}.")
+            print(f'{fclr.RED+style.BOLD}===VARIABLES==={fclr.DEFAULT+style.UNBOLD}')
             for v in self.vars:
-                print(f"{solve_regex(v['rname'])}:")
+                print(f"{style.BOLD}{solve_regex(v['rname'])}{style.UNBOLD}:")
                 print(f"\t{v['description']}")
-            print('===FUNCTIONS===')
+            print(f'{fclr.RED+style.BOLD}===FUNCTIONS==={fclr.DEFAULT+style.UNBOLD}')
             for f in self.funcs:
-                print(f'{self.short_func_signature(f)}:')
+                print(f'{style.BOLD}{self.short_func_signature(f)}{style.UNBOLD}:')
                 print(f"\t{f['description']}")
         else:
             for a in args:
                 for v in self.vars:
                     if v['name_pattern'].fullmatch(a):
-                        print(f"{solve_regex(v['rname'])}: variable")
+                        print(f"{style.BOLD}{solve_regex(v['rname'])}{style.UNBOLD}: variable")
                         print(f"\t{v['description']}")
                 for f in self.funcs:
                     if f['name_pattern'].fullmatch(a):
-                        print(f'{self.short_func_signature(f)}: function')
+                        print(f'{style.BOLD}{self.short_func_signature(f)}{style.UNBOLD}: function')
                         print(f"\t{f['description']}")
     # UTIL
     @staticmethod

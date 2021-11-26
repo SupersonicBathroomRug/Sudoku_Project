@@ -123,32 +123,40 @@ class ProofStep:
     '''Describes the reasoning behind filling a particular cell. Stores a list with the steps of the proof in order.\\
     Can answer questions such as "How many/which cells are used over all?", "What is k?", "Print this!".\n
     Member variables:\\
-    `position`: `tuple(0-8, 0-8)`
-    >   Which position did we fill?\n
-    `value`: `int`
-    >   What value did we fill in?\n
-    `k`: `int`
-    >   How many cells are used overall?\n
-    `proof`: `list(Knowledge/Deduction instances)`
-    >   The steps of the proof in order.\n
-    `proof_order`: `dict(Knowledge/Deduction -> idx)`
-    >   Inverse of `proof`.\n
-    `k_opt`: `bool`
-    >   Was this proofstep optimized to use the smallest `k` possible?`\n
-    `approximation`: `bool`
+    `position`: `tuple(0-8, 0-8)`\\
+    >   Which position did we fill?
+    `value`: `int`\\
+    >   What value did we fill in?
+    `k`: `int`\\
+    >   How many cells are used overall?
+    `proof`: `list(Knowledge/Deduction instances)`\\
+    >   The steps of the proof in order.
+    `proof_order`: `dict(Knowledge/Deduction -> idx)`\\
+    >   Inverse of `proof`.
+    `k_opt`: `bool`\\
+    >   Was this proofstep optimized to use the smallest `k` possible?
+    `approximation`: `bool`\\
     >   Did this proofstep use some sort of approximation? If `k_opt` is `False`, or k-optimization wasn't "pure" (proof structure
-        was not acyclic), then this is `True`.'''
-    def __init__(self, deductions, k_opt=False, ip_time_limit=None):
-        '''Initiates a `ProofStep` instance wrapping deduction. Accepts a set of deductions, and chooses one to use.\n
+        was not acyclic), then this is `True`.
+    `greedy`: `bool`\\
+    >   Was this a greedy step? This was a greedy step, if we filled in the first cell we could fill immediately, without looking for other
+    (possibly better) options. This is not calculated here, merely saved in this data structure.'''
+    def __init__(self, deductions, k_opt=False, ip_time_limit=None, greedy_deduction=None):
+        '''Initiates a `ProofStep` instance wrapping a deduction from `deductions`. Accepts a set of deductions, and chooses one to use.\n
         If `k_opt` is `True`, it attempt to fill the cell which requires the least amount of knowledge. Otherwise it fills the
-        first cell. In that case, if `choose_resolution` is `True`, deduction will be converted to the standard format, 
-        stripping away redundant Consequences recursively; the resulting proof structure will be acyclic.
-        `chosen_reasons`: Deduction -> Consequence (which reasoning did we choose?)'''
+        first cell. Before k-optimizing, the dependency structure of the proof will be made acyclic: this may set `approximation` to `True`, as
+        there's no guarantee that this process doesn't eliminate the best case. `ip_time_limit` is the time limit in seconds for the IP solver 
+        used in k-optimization; `None` means unlimited time. If `greedy_deduction` is not `None`, this will be considered a greedy step: 
+        `self.k_opt` will be set to `k_opt`, but IP-k-optimization will be skipped and `greedy_decution` will be chosen as the selected
+        `Deduction`.'''
         self.proof_order = {}
         self.proof = []
         self.k = 0
         self.chosen_reasons = {}
         self.approximation = False
+        self.greedy = (greedy_deduction is not None)
+        old_kopt = k_opt # turn off k_opt, if greedy
+        if self.greedy: k_opt = False
         # ^this may be set to True later on!
         chosen_deduction = None # which value of `deductions` will we use?
         if k_opt:
@@ -184,7 +192,7 @@ class ProofStep:
                 k_opt = False
         if not k_opt: # k_opt == False, or k-optimization failed miserably
             self.approximation = True
-            chosen_deduction = next(iter(deductions))
+            chosen_deduction = next(iter(deductions)) if greedy_deduction is None else greedy_deduction
             # REMOVE CYCLES AND REDUNDANCY
             self._choose_resolution_greedy(chosen_deduction, stack=set(), resolved=set())
         # CREATE TOPOLOGICAL ORDERING OF PROOF
@@ -193,6 +201,7 @@ class ProofStep:
         self.position = chosen_deduction.result.get_pos() # save core info
         self.value = chosen_deduction.result.value
         self.k_opt = k_opt
+        if self.greedy: self.k_opt = old_kopt
     
     # >>> __init__ HELPERS (RECURSIONS)
     def _make_acyclic(self, step, stack, allowed_paths):

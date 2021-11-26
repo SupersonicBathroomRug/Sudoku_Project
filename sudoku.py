@@ -7,6 +7,7 @@ import numpy as np
 import re
 import time
 import builtins
+import copy
 from sys import argv
 from getopt import getopt
 from itertools import product
@@ -51,6 +52,9 @@ sudoku_app.add_function(r'proof',[(r'slice',r'\d*\s*:\s*\d*',':'),(r'file',Conso
     r'-?-?r(?:ef(?:erence)?)?',r'-?-?[Ii](?:s[Vv]alue)?',description=
     '''Prints the proof constructed so far to the console (or the given file, e.g. "proof.txt"). A 'slice' is a start:end slice notation,
 where either or both arguments may be omitted: if this is given, only these proof steps will be printed.''')
+sudoku_app.add_function(r'play(?:back)?',[],description=
+    '''Enter a playback mode of the proof so far. Individual ProofSteps and their lemmas can be explored with the current states of the
+board always shown.''')
 sudoku_app.add_function(r'stat(?:istic)?s?',[(r'file',ConsoleApp.Patterns.TEXT,"")],description=
     '''Prints some detailed statistics about the solving process so far, such as total runtime.''')
 sudoku_app.add_function(r'origin(?:al)?|og?|puzzle',[],description=
@@ -367,6 +371,8 @@ class Sudoku:
                     isvalue=data['flags'][r'-?-?[Ii](?:s[Vv]alue)?'],
                     reference=data['flags'][r'-?-?r(?:ef(?:erence)?)?'])
                 print.reset()
+            elif action == 'func' and rname == r'play(?:back)?':
+                self.playback()
             elif action == 'get_var' and rname == r'k[-_]opt(?:imi[zs]ation)?':
                 print(f"k-optimization: {'ON' if self.k_opt else 'OFF'}")
             elif action == 'set_var' and rname == r'k[-_]opt(?:imi[zs]ation)?':
@@ -433,7 +439,20 @@ class Sudoku:
     def is_unique(self):
         '''Checks whether this sudoku has a unique solution. See `check_unicity()`.'''
         return check_unicity(self.board, False)
+    
+    def ban(self, row, col, value, rule, cells_used):
+        '''Ban `value` from `(row, col)` using `rule` (`str`  identifier) applied to `cells_used` (`list` of `Knowledge`/`Deduction` instances).'''
+        made_deduction = False
+        made_deduction |= self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
+        # STREAMLINE
+        if made_deduction and self.reset_always:
+            raise ResetDeductionSearch()
+        return made_deduction
 
+    # >>> PRINTING
     def print_status(self):
         '''Prints a detailed representation of the current state of the puzzle. Each cell contains which numbers can be written there.'''
         boardio.print_detailed_board(self.board, [[self.allowed[r][c].allowed() for c in range(9)] for r in range(9)])
@@ -471,18 +490,91 @@ class Sudoku:
         print(f"| Maximal k:               {max((step.k for step in self.proof),default=0)}")
         print(f"| Maximal optimized k:     {max((step.k for step in self.proof if step.k_opt),default=0)}")
         print(f"| Mean k:                  {0 if len(self.proof)==0 else sum((step.k for step in self.proof))/len(self.proof)}")
+    
+    def playback(self):
+        '''Start a session where the user can move backwards and forwards in time and see what the board looked like during the solving process.'''
+        # >>> Handle special case
+        if len(self.proof) == 0:
+            self.print_status()
+            print("ERROR: there were no steps made yet. Shutting down playback session...")
+            return
+        # >>> Generate cache
+        print("Generating cache...")
+        # get starting board
+        sud = Sudoku(board=self.starting_board)
+        get_allowed = lambda : [ [[(coldict[v+1] is None) for v in range(9)] for coldict in rowarray] for rowarray in sud.allowed]
+        start_allowed = get_allowed()
+        start_board = copy.deepcopy(sud.board)
+        cache = [] # each element is a tuple, with the first element being [a list of tuples (1 tuple for each lemma), with its first element being 
+        #   the current 'allowed' value, and the second the string corresponding to this step; for the last lemma, the new board is also saved] and
+        #   the second the board before this step
+        # these two are used during the computation phase only:
+        last_board = copy.deepcopy(start_board)
+        for i, step in enumerate(self.proof):
+            cache.append(([], copy.deepcopy(last_board)))
+            for lemma, lemma_string in zip(step.proof, step.to_strings(False, True)):
+                if not isinstance(lemma, Deduction): continue
+                if isinstance(lemma.result, CantBe):
+                    pos = lemma.result.get_pos()
+                    if sud.allowed[pos[0]][pos[1]][lemma.result.value] is None:
+                        sud.ban(*lemma.result.get_pos(),lemma.result.value,'deus_ex',[])
+                        cache[-1][0].append((get_allowed(), lemma_string))
+                else: # isinstance(lemma.result, MustBe):
+                    pos = lemma.result.get_pos()
+                    sud[pos] = lemma.result.value
+                    last_board[pos[0]][pos[1]] = lemma.result.value
+                    cache[-1][0].append((get_allowed(), lemma_string, copy.deepcopy(last_board)))
+        # Start interactive part
+        proofstep = -1
+        lemma = 0
+        possibles = lambda allowed: [[[i+1 for i in range(9) if cell[i]] for cell in rowarray] for rowarray in allowed]
+        boardio.print_detailed_board(start_board, possibles(start_allowed))
+        while True:
+            print("<Press 'q' to quit, 'j' to jump to a given proofstep, 'ad' to move between lemmas, and 'ws' to move between proofsteps.>\n\n")
+            key = boardio.getch().decode('utf-8')
+            # Parse keys
+            if key == 'q':
+                print("Shutting down playback session...")
+                return
+            elif key == 'j':
+                proofstep = min(len(self.proof)-1, max(0, int(input(f"Jump to proofstep (0-{len(self.proof)-1}): "))))
+                lemma = 0
+            elif key == 'a':
+                if proofstep == -1: print("NO LEMMAS HERE")
+                elif lemma > 0: lemma -= 1
+                else: print("FIRST LEMMA REACHED")
+            elif key == 'd':
+                if proofstep == -1: print("NO LEMMAS HERE")
+                elif lemma < len(cache[proofstep][0])-1: lemma += 1
+                else: print("LAST LEMMA REACHED")
+            elif key == 'w':
+                if proofstep > -1: 
+                    proofstep -= 1
+                    lemma = 0
+                else: 
+                    print("FIRST PROOFSTEP REACHED")
+            elif key == 's':
+                if proofstep < len(self.proof)-1: 
+                    proofstep += 1
+                    lemma = 0
+                else: 
+                    print("LAST PROOFSTEP REACHED")
+            # Print
+            # - special case
+            if proofstep == -1:
+                boardio.print_detailed_board(start_board, possibles(start_allowed))
+                print("(This is the starting board.)")
+                continue
+            # - general case
+            step = self.proof[proofstep]
+            print(f"[#{proofstep}, k={step.k}, k-opt={step.k_opt}, approx={step.approximation}, greedy={step.greedy}]")
+            print(f"{step.position} is {step.value}, because:")
+            if lemma < len(cache[proofstep][0]) - 1:
+                boardio.print_detailed_board(cache[proofstep][1],possibles(cache[proofstep][0][lemma][0]))
+            else:
+                boardio.print_detailed_board(cache[proofstep][0][lemma][2],possibles(cache[proofstep][0][lemma][0]))
+            print(cache[proofstep][0][lemma][1])
 
-    def ban(self, row, col, value, rule, cells_used):
-        '''Ban `value` from `(row, col)` using `rule` (`str`  identifier) applied to `cells_used` (`list` of `Knowledge`/`Deduction` instances).'''
-        made_deduction = False
-        made_deduction |= self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
-        made_deduction |= self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
-        made_deduction |= self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
-        made_deduction |= self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
-        # STREAMLINE
-        if made_deduction and self.reset_always:
-            raise ResetDeductionSearch()
-        return made_deduction
 
 # >>> SOLVERS
 def check_unicity(board_to_solve, verbose=False):

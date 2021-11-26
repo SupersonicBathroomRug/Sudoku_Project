@@ -10,6 +10,8 @@ import bs4 # type: ignore
 import sys
 import builtins
 
+from Getch import getch
+
 headers = {'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36'}
 
 # >>> Custom print to make printing to files easier.
@@ -69,7 +71,6 @@ def gridtext_to_arraytext(s):
 def edit_sudoku(board=None):
     '''Edit a sudoku board. Navigate the cells with `wasd`, delete with 0 or `x`, fill a cell by typing the desired number.\\
     Quit with `q`, get this help with `h`.'''
-    from Getch import getch
     if board is None: board = [[0 for _ in range(9)] for _ in range(9)]
     selected = [4, 4]
     nums = set(map(str,range(10)))

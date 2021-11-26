@@ -16,14 +16,25 @@ from consoleapp import ConsoleApp
 import boardio
 from boardio import print
 from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell, line_square, square_line
-from tracker import CantBe, Consequence, Deduction, IsValue, MustBe, ProofStep
+from tracker import CantBe, Consequence, Deduction, IsValue, Knowledge, MustBe, ProofStep
 from graph import print_graph
 from util import cell_section, local_to_global, global_to_local, diclen
 
 sudoku_app = ConsoleApp(description='INTERACTIVE SUDOKU SOLVER')
-sudoku_app.add_variable(r'k[-_]opt(?:imi[zs]ation)?',ConsoleApp.Patterns.BOOLONOFF,'Should we minimize k in the solving process?')
+# VARIABLES
+sudoku_app.add_variable(r'k[-_]opt(?:imi[zs]ation)?',ConsoleApp.Patterns.BOOLONOFF,
+    'Should we minimize k in the solving process?')
 sudoku_app.add_variable(r'[iI][pP][-_][tT](?:ime)?(?:[-_]?[lL]im(?:it)?)?',ConsoleApp.Patterns.FLOAT,
     'How much time should be given to the IP solver in each iteration? Setting to non-positive values will disable the time limit.')
+sudoku_app.add_variable(r'greedy?',ConsoleApp.Patterns.BOOLONOFF,
+    '''If k-optimization is ON, should it be turned off if a cell can be filled without using intermediate steps? For example,
+if only one value can be written somewhere because all others are present in its row/column/section, should we immediately fill it in?
+This means a significant speedup, but may not achieve the optimal k if this optimum is below 8.\n
+If k-optimization is OFF, should we immediately fill in a cell if we deduce its content?''')
+sudoku_app.add_variable(r'reset(?:[-_]always)?',ConsoleApp.Patterns.BOOLONOFF,
+    '''After a new deduction has been made in the solving process, should we continue looking for more complicated deductions, or should we
+immediately jump back to the simplest deductions, and look for them instead? This may or may not speed up the solving process.''')
+# FUNCTIONS
 sudoku_app.add_function(r'set',[(r'row',r'\d'),(r'col(?:umn)?',r'\d:?'),(r'val(?:ue)?',r'\d')],description=
     '''Set the cell given by 'row' and 'column' to value 'value', if possible.''')
 sudoku_app.add_function(r'ban',[(r'cells',r'(?:\d[,;\s]*\d[,;\s]*)+:'),(r'values',r'(?:[,;\s]*\d)*')],description=
@@ -53,16 +64,23 @@ sudoku_app.add_function(r'step',[(r'n',ConsoleApp.Patterns.UINT,'1'),(r'file',Co
 sudoku_app.add_function(r'',[],description=
     '''Attempts to solve the sudoku from this state.''')
 
+class FillImmediately(Exception):
+    def __init__(self, deduction):
+        self.deduction = deduction
+class ResetDeductionSearch(Exception):
+    pass
+
 class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
 
     # >>> DATA MANIPULATION
-    def __init__(self, board=None, tuples=None, k_opt=False, ip_time_limit=0.5):
+    def __init__(self, board=None, tuples=None, k_opt=False, ip_time_limit=0.5, greedy=True, reset_always=False):
         '''Initialize a sudoku either with:\n
-        `board`: `list` of `list`s
-        >   A matrix representation of the sudoku table, with 0s in empty cells.\n
-        `tuples`: `Iterable` of `(row, column, value)` tuples
-        >   An `Iterable` containing an entry for each filled cell of the board.'''
+        `board`: `list` of `list`s\\
+        >   A matrix representation of the sudoku table, with 0s in empty cells.
+        `tuples`: `Iterable` of `(row, column, value)` tuples\\
+        >   An `Iterable` containing an entry for each filled cell of the board.\n
+        The other variables are default values of their respective variables.'''
         if tuples is not None:
             pass
         elif board is not None:
@@ -80,14 +98,18 @@ class Sudoku:
         self.missing = 9*9
         self.proof = []
         self.filler_deductions = set()
-        # stats:
+        # bools:
         self.k_opt = k_opt
         self.ip_time_limit = ip_time_limit
+        self.greedy = greedy
+        self.reset_always = reset_always
+        # stats:
         self.deduction_time = 0
         self.k_opt_time = 0
         self.fill_time = 0
         self.failed_solves = 0
         self.deus_ex_sets = 0
+        # init
         for row, col, val in tuples:
             self[row, col] = val
         self.starting_board = [[self.board[i][j] for j in range(9)] for i in range(9)]
@@ -150,13 +172,25 @@ class Sudoku:
                 if ded.result == knowledge:
                     return ded.add_reason(cons)
             # if this deduction has not been made yet, create and save it!
-            self.filler_deductions.add(Deduction([cons], knowledge))
+            d = Deduction([cons], knowledge)
+            self.filler_deductions.add(d)
+            # STREAMLINE
+            if self.greedy:
+                if self.k_opt: # if all the reasons are Knowledges, fill in the cell
+                    for r in reasons:
+                        if not isinstance(r, Knowledge):
+                            break
+                    else:
+                        raise FillImmediately(d)
+                else: # if k_opt is OFF, and we found a filler deduction, fill it in
+                    raise FillImmediately(d)
             return True
         elif isinstance(knowledge, CantBe):
             # find this Knowledge if it exists:
             old = self._get_knowledge(knowledge)
             if isinstance(old, Deduction): # this deduction already exists
-                return old.add_reason(cons)
+                ret = old.add_reason(cons) # STREAMLINE is in self.ban in this case 
+                return ret
             else:
                 self._store_new_deduction(Deduction([cons], knowledge))
                 return True
@@ -193,13 +227,20 @@ class Sudoku:
             return True
         timestamp = time.time()
         made_deduction = True
+        greedy_deduction = None
         # MAKE DEDUCTIONS WHILE POSSIBLE
         while made_deduction:
-            made_deduction = False
-            only_one_value(self)
-            only_this_cell(self)
-            made_deduction |= nake_pair(self)
-            made_deduction |= hidden_pair(self)
+            try:
+                made_deduction = False
+                only_one_value(self)
+                only_this_cell(self)
+                made_deduction |= nake_pair(self)
+                made_deduction |= hidden_pair(self)
+            except FillImmediately as f:
+                greedy_deduction = f.deduction
+                made_deduction = False
+            except ResetDeductionSearch:
+                made_deduction = True
 
         self.deduction_time += time.time() - timestamp
         timestamp = time.time()
@@ -210,7 +251,7 @@ class Sudoku:
         # DECIDE HOW TO PROVE THIS STEP
         if graph:
             print_graph(self.filler_deductions)
-        proofstep = ProofStep(self.filler_deductions, self.k_opt, self.ip_time_limit)
+        proofstep = ProofStep(self.filler_deductions, self.k_opt, self.ip_time_limit, greedy_deduction)
         self.proof.append(proofstep)
         self.k_opt_time += time.time() - timestamp
         timestamp = time.time()
@@ -344,6 +385,16 @@ class Sudoku:
                 else:
                     self.ip_time_limit = f
                     print(f"ip-time-limit was set to {f} s")
+            elif action == 'get_var' and rname == r'greedy?':
+                print(f"greedy: {'ON' if self.greedy else 'OFF'}")
+            elif action == 'set_var' and rname == r'greedy?':
+                self.greedy = ConsoleApp.str_to_bool(data)
+                print(f"greedy was set to {self.greedy}")
+            elif action == 'get_var' and rname == r'reset(?:[-_]always)?':
+                print(f"reset-always is {'ON' if self.reset_always else 'OFF'}")
+            elif action == 'set_var' and rname == r'reset(?:[-_]always)?':
+                self.reset_always = ConsoleApp.str_to_bool(data)
+                print(f"reset-always was set to {self.reset_always}")
             elif action == 'func' and rname == r'stat(?:istic)?s?':
                 file = ConsoleApp.get_text(data['params']['file'])
                 if file != '':
@@ -389,7 +440,7 @@ class Sudoku:
 
     def proof_to_string(self, idx, isvalue=False, reference=False):
         '''Converts the data of the ith proof step to a string.'''
-        ret = f"[#{idx}, k={self.proof[idx].k}, k-opt={self.proof[idx].k_opt}, approx={self.proof[idx].approximation}]\n"
+        ret = f"[#{idx}, k={self.proof[idx].k}, k-opt={self.proof[idx].k_opt}, approx={self.proof[idx].approximation}, greedy={self.proof[idx].greedy}]\n"
         ret += f"  {self.proof[idx].position} is {self.proof[idx].value}, because:\n\t"
         ret += "\n\t".join(self.proof[idx].to_strings(reference,isvalue))
         return ret
@@ -406,12 +457,15 @@ class Sudoku:
         print(f"| k-optimization time:     {self.k_opt_time} s")
         print(f"| Fill time:               {self.fill_time} s\n")
         print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}")
-        print(f"ip-time-limit:             {'UNLIMITED' if self.ip_time_limit is None else f'{self.ip_time_limit} s'}\n")
+        print(f"ip-time-limit:             {'UNLIMITED' if self.ip_time_limit is None else f'{self.ip_time_limit} s'}")
+        print(f"greedy:                    {'ON' if self.greedy else 'OFF'}")
+        print(f"reset-always:              {'ON' if self.reset_always else 'OFF'}\n")
         print(f"| Failed solves:           {self.failed_solves}")
         print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")
         print(f"| Deus ex sets:            {self.deus_ex_sets}\n")
         print(f"Proof steps made:          {len(self.proof)}")
         print(f"| k-optimized steps:       {sum((1 if s.k_opt else 0 for s in self.proof))}")
+        print(f"| Greedy steps:            {sum((1 if s.greedy else 0 for s in self.proof))}")
         print(f"| Weak k-approximations:   {sum((1 if s.approximation and s.k>8 else 0 for s in self.proof))}")
         print(f"| Strong k-approximations: {sum((1 if s.approximation and s.k<=8 else 0 for s in self.proof))}")
         print(f"| Maximal k:               {max((step.k for step in self.proof),default=0)}")
@@ -425,6 +479,9 @@ class Sudoku:
         made_deduction |= self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
         made_deduction |= self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
         made_deduction |= self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
+        # STREAMLINE
+        if made_deduction and self.reset_always:
+            raise ResetDeductionSearch()
         return made_deduction
 
 # >>> SOLVERS

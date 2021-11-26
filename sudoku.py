@@ -26,10 +26,11 @@ sudoku_app.add_variable(r'k[-_]opt(?:imi[zs]ation)?',ConsoleApp.Patterns.BOOLONO
     'Should we minimize k in the solving process?')
 sudoku_app.add_variable(r'[iI][pP][-_][tT](?:ime)?(?:[-_]?[lL]im(?:it)?)?',ConsoleApp.Patterns.FLOAT,
     'How much time should be given to the IP solver in each iteration? Setting to non-positive values will disable the time limit.')
-sudoku_app.add_variable(r'greed(?:y(?:[-_](?:k[-_]?)?opt(?:imi[zs]ation)?)?)?',ConsoleApp.Patterns.BOOLONOFF,
+sudoku_app.add_variable(r'greedy?',ConsoleApp.Patterns.BOOLONOFF,
     '''If k-optimization is ON, should it be turned off if a cell can be filled without using intermediate steps? For example,
 if only one value can be written somewhere because all others are present in its row/column/section, should we immediately fill it in?
-This means a significant speedup, but may not achieve the optimal k if this optimum is below 8.''')
+This means a significant speedup, but may not achieve the optimal k if this optimum is below 8.\n
+If k-optimization is OFF, should we immediately fill in a cell if we deduce its content?''')
 sudoku_app.add_variable(r'reset(?:[-_]always)?',ConsoleApp.Patterns.BOOLONOFF,
     '''After a new deduction has been made in the solving process, should we continue looking for more complicated deductions, or should we
 immediately jump back to the simplest deductions, and look for them instead? This may or may not speed up the solving process.''')
@@ -67,7 +68,7 @@ class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
 
     # >>> DATA MANIPULATION
-    def __init__(self, board=None, tuples=None, k_opt=False, ip_time_limit=0.5, greedy_kopt=True, reset_always=False):
+    def __init__(self, board=None, tuples=None, k_opt=False, ip_time_limit=0.5, greedy=True, reset_always=False):
         '''Initialize a sudoku either with:\n
         `board`: `list` of `list`s
         >   A matrix representation of the sudoku table, with 0s in empty cells.\n
@@ -93,7 +94,7 @@ class Sudoku:
         # bools:
         self.k_opt = k_opt
         self.ip_time_limit = ip_time_limit
-        self.greedy_kopt = greedy_kopt
+        self.greedy = greedy
         self.reset_always = reset_always
         # stats:
         self.deduction_time = 0
@@ -358,11 +359,11 @@ class Sudoku:
                 else:
                     self.ip_time_limit = f
                     print(f"ip-time-limit was set to {f} s")
-            elif action == 'get_var' and rname == r'greed(?:y(?:[-_](?:k[-_]?)?opt(?:imi[zs]ation)?)?)?':
-                print(f"greedy-k-optimization: {'ON' if self.greedy_kopt else 'OFF'}")
-            elif action == 'set_var' and rname == r'greed(?:y(?:[-_](?:k[-_]?)?opt(?:imi[zs]ation)?)?)?':
-                self.greedy_kopt = ConsoleApp.str_to_bool(data)
-                print(f"greedy-k-optimization was set to {self.greedy_kopt}")
+            elif action == 'get_var' and rname == r'greedy?':
+                print(f"greedy: {'ON' if self.greedy else 'OFF'}")
+            elif action == 'set_var' and rname == r'greedy?':
+                self.greedy = ConsoleApp.str_to_bool(data)
+                print(f"greedy was set to {self.greedy}")
             elif action == 'get_var' and rname == r'reset(?:[-_]always)?':
                 print(f"reset-always is {'ON' if self.reset_always else 'OFF'}")
             elif action == 'set_var' and rname == r'reset(?:[-_]always)?':
@@ -431,7 +432,7 @@ class Sudoku:
         print(f"| Fill time:               {self.fill_time} s\n")
         print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}")
         print(f"ip-time-limit:             {'UNLIMITED' if self.ip_time_limit is None else f'{self.ip_time_limit} s'}")
-        print(f"greedy-k-optimization:     {'ON' if self.greedy_kopt else 'OFF'}")
+        print(f"greedy:                    {'ON' if self.greedy else 'OFF'}")
         print(f"reset-always:              {'ON' if self.reset_always else 'OFF'}\n")
         print(f"| Failed solves:           {self.failed_solves}")
         print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")

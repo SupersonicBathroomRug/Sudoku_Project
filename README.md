@@ -18,6 +18,14 @@ Követelmények:
 
 *Ez egy nagyon szép feladatleírás, mint az látszik. A mi célunk, hogy ezt ne teljesítsük, hanem egy Sudokut emberi módon oldó programot írjunk.*
 
+# Installálás
+
+Előfeltételek: python 3, pip
+A következő paranccsal installálhatod a csomagokat:
+``pip install -r requirements.txt``
+Majd ezután a következőképpen futtathatod a programot:
+``py sudoku.py``
+
 # Megoldás
 *Utoljára frissítve: 2021.11.24. 22:20*
 ## Tartalom

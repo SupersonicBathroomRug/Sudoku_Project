@@ -58,7 +58,7 @@ def _ban_numbers(sudoku, cell,numbers,rule, cells_used):
     return made_deduction
 
 def _allowed_numbers(sudoku, cells):
-    """Returns a list where i-th element contains the allowed numbers in cells[i]"""
+    """Returns a list of tuples, where i-th element in the list contains the allowed numbers in cells[i]"""
     allowed_numbers = []
     for cell in cells:
         if sudoku.board[cell[0]][cell[1]] != 0:
@@ -168,3 +168,61 @@ def line_square(sudoku):
                     if c!=col:
                         made_deduction|=sudoku.ban(r,c,val+1,"col_square",reason)
     return made_deduction
+
+def naked_trios(sudoku):
+    """RULE: if v,w,x can be written only to three cells in this row/col/sec, then remove it from the other cells of the row/col/sec."""
+
+    def search_for_naked_trios(elems):
+        """Returns a list of 3-tuples, where every tuple contains the indeces of the identical inputs"""
+        return [(i,j,k) for i in range(len(elems)) for j in range(i+1,len(elems)) for k in range(j+1,len(elems)) if len(elems[i])==3 and elems[i]==elems[j] and elems[j]==elems[k]]
+    
+    def search_and_ban_in_subset(cells_to_check):
+        """Searches all naked-trios in a subset of cells and bans these numbers from the other elements of subset."""
+        made_deduction = False
+        allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
+        naked_trios = search_for_naked_trios(allowed_numbers)
+        for trio in naked_trios:
+            cell0 = cells_to_check[trio[0]]
+            cell1 = cells_to_check[trio[1]]
+            cell2 = cells_to_check[trio[2]]
+            deleted_numbers = sudoku.allowed[cell0[0]][cell0[1]].allowed()
+            cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
+            for cell in cells_to_check:
+                if cell not in (cell0, cell1, cell2):
+                    made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"naked-trios",cells_used)
+        return made_deduction
+
+    return _apply_for_nines(search_and_ban_in_subset)
+
+def hidden_trios(sudoku):
+    """RULE: if only A,B,C cells (in one row/col/sec) has a number x,y,z then delete every number from A,B,C except x,y,z."""
+    def search_hidden_trios(elems):
+        where_can_go = {i:[] for i in range(1,10)} # i-th number in which indices of elems can go
+        for idx,elem in enumerate(elems):
+            for num in elem:
+                where_can_go[num].append(idx)
+
+        three_potential_place = {k: tuple(v) for k,v in where_can_go.items() if len(v)==3}
+        quad_trios = set([trio for trio in three_potential_place.values() if list(three_potential_place.values()).count(trio) >= 4])
+        if len(quad_trios)>0 :
+            raise Exception("Contradiction in hidden trios") # TODO: better error handle
+        triple_trios = set([trio for trio in three_potential_place.values() if list(three_potential_place.values()).count(trio) == 3])
+        return {trio: tuple([k for k,v in three_potential_place.items() if v==trio]) for trio in triple_trios}
+
+    def search_and_ban_in_subset(cells_to_check):
+        made_deduction = False
+        allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
+        trios = search_hidden_trios(allowed_numbers)
+        for trio,except_nums in trios.items():
+            cell0 = cells_to_check[trio[0]]
+            cell1 = cells_to_check[trio[1]]
+            cell2 = cells_to_check[trio[2]]
+            cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
+            made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[trio[0]]), "hidden-trio",cells_used)
+            made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[trio[1]]), "hidden-trio",cells_used)
+            made_deduction |= _ban_numbers(sudoku, cell2, filter(lambda x: x not in except_nums, allowed_numbers[trio[2]]), "hidden-trio",cells_used)
+
+        return made_deduction
+
+    return _apply_for_nines(search_and_ban_in_subset)
+

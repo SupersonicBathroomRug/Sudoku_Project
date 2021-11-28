@@ -173,7 +173,12 @@ def naked_trios(sudoku):
     """RULE: if v,w,x can be written only to three cells in this row/col/sec, then remove it from the other cells of the row/col/sec."""
 
     def search_for_naked_trios(elems):
-        """Returns a list of 3-tuples, where every tuple contains the indeces of the identical inputs"""
+        """Returns a list of 3-tuples, where every tuple contains the indeces of the identical inputs. The cases:
+        (123) (123) (123) - {3/3/3} (in terms of candidates per cell)
+        (123) (123) (12) - {3/3/2} (or some combination thereof)
+        (123) (12) (23) - {3/2/2/}
+        (12) (23) (13) - {2/2/2}
+        """
         return [(i,j,k) for i in range(len(elems)) for j in range(i+1,len(elems)) for k in range(j+1,len(elems)) if len(elems[i])==3 and elems[i]==elems[j] and elems[j]==elems[k]]
     
     def search_and_ban_in_subset(cells_to_check):
@@ -182,6 +187,7 @@ def naked_trios(sudoku):
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
         naked_trios = search_for_naked_trios(allowed_numbers)
         for trio in naked_trios:
+            print("naked_trios :)")
             cell0 = cells_to_check[trio[0]]
             cell1 = cells_to_check[trio[1]]
             cell2 = cells_to_check[trio[2]]
@@ -214,6 +220,7 @@ def hidden_trios(sudoku):
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
         trios = search_hidden_trios(allowed_numbers)
         for trio,except_nums in trios.items():
+            print("hidden_trios :)")
             cell0 = cells_to_check[trio[0]]
             cell1 = cells_to_check[trio[1]]
             cell2 = cells_to_check[trio[2]]
@@ -221,8 +228,50 @@ def hidden_trios(sudoku):
             made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[trio[0]]), "hidden-trio",cells_used)
             made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[trio[1]]), "hidden-trio",cells_used)
             made_deduction |= _ban_numbers(sudoku, cell2, filter(lambda x: x not in except_nums, allowed_numbers[trio[2]]), "hidden-trio",cells_used)
-
         return made_deduction
 
     return _apply_for_nines(search_and_ban_in_subset)
 
+
+def yswing(sudoku):
+    '''RULE: if (i,j)=AC and (k,l)=BC and (i,l)=AB then remove C from (j,k).'''
+    # (i,j)=AC and (k,l)=BC
+    def allowed_nums_multicells(*args):
+        return set.intersection(*[set(_allowed_numbers(sudoku,[arg])[0]) for arg in args])
+
+    made_deduction = False
+    for cell1 in product(range(9),range(9)): # left-down
+        for cell2 in product(range(9),range(9)):
+            if cell1 == (1,0) and cell2 == (3,5):
+                print("asd")
+                pass
+            if len(allowed_nums_multicells(cell1)) == 2 and len(allowed_nums_multicells(cell2)) == 2 and \
+               len(allowed_nums_multicells(cell1,cell2)) == 1 and \
+               not (cell1[0] == cell2[0] and cell1[1] == cell2[1]):
+                if len(set((cell1[0],cell2[0]))) == 2 and len(set((cell1[1],cell2[1]))) == 2:
+                    # It is a rectangle
+                    cell0 = (cell1[0], cell2[1])
+                    cell3 = (cell2[0], cell1[1])
+                    if len(allowed_nums_multicells(cell0,cell1)) == 1 and \
+                       len(allowed_nums_multicells(cell0,cell2)) == 1 and \
+                       len(allowed_nums_multicells(cell0,cell1,cell2)) == 0:
+                        # Good rectangle.
+                        deleted_number = set.intersection(allowed_nums_multicells(cell1,cell2)).pop()
+                        cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
+                        made_deduction |= sudoku.ban(cell3[0],cell3[1],deleted_number,"y-swing",cells_used)
+                    if len(allowed_nums_multicells(cell3,cell1)) == 1 and \
+                       len(allowed_nums_multicells(cell3,cell2)) == 1 and \
+                       len(allowed_nums_multicells(cell3,cell1,cell2)) == 0:
+                        # Good rectangle.
+                        deleted_number = set.intersection(allowed_nums_multicells(cell1,cell2)).pop()
+                        cells_used = sudoku.allowed[cell3[0]][cell3[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
+                        made_deduction |= sudoku.ban(cell0[0],cell0[1],deleted_number,"y-swing",cells_used)
+                elif cell1[0] == cell2[0]:
+                    # One row
+                    #TODO
+                    pass
+                else:
+                    #TODO
+                    # One col
+                    pass
+    return made_deduction

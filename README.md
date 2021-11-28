@@ -21,10 +21,18 @@ Követelmények:
 # Installálás
 
 Előfeltételek: python 3, pip
+
 A következő paranccsal installálhatod a csomagokat:
-``pip install -r requirements.txt``
+
+```
+pip install -r requirements.txt
+```
+
 Majd ezután a következőképpen futtathatod a programot:
-``py sudoku.py``
+
+```
+py sudoku.py
+```
 
 # Megoldás
 *Utoljára frissítve: 2021.11.24. 22:20*

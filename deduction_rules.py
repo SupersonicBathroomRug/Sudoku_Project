@@ -112,11 +112,14 @@ def hidden_pair(sudoku):
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
         pairs = search_hidden_pairs(allowed_numbers)
         for pair,except_nums in pairs.items():
-            current_hidden_cell0 = cells_to_check[pair[0]]
-            current_hidden_cell1 = cells_to_check[pair[1]]
-            cells_used = sudoku.allowed[current_hidden_cell0[0]][current_hidden_cell0[1]].notNones()+sudoku.allowed[current_hidden_cell1[0]][current_hidden_cell1[1]].notNones()
-            made_deduction |= _ban_numbers(sudoku, current_hidden_cell0, filter(lambda x: x not in except_nums, allowed_numbers[pair[0]]), "hidden_pair",cells_used)
-            made_deduction |= _ban_numbers(sudoku, current_hidden_cell1, filter(lambda x: x not in except_nums, allowed_numbers[pair[1]]), "hidden_pair",cells_used)
+            cell0 = cells_to_check[pair[0]]
+            cell1 = cells_to_check[pair[1]]
+            cells_used = []
+            for cell in cells_to_check:
+                if cell not in (cell0, cell1):
+                    cells_used += sudoku.allowed[cell[0]][cell[1]].notNones()
+            made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[pair[0]]), "hidden_pair",cells_used)
+            made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[pair[1]]), "hidden_pair",cells_used)
 
         return made_deduction
 
@@ -249,8 +252,10 @@ def hidden_trios(sudoku):
             cell0 = cells_to_check[trio[0]]
             cell1 = cells_to_check[trio[1]]
             cell2 = cells_to_check[trio[2]]
-            print(cell0, cell1, cell2, except_nums)
-            cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
+            cells_used = []
+            for cell in cells_to_check:
+                if cell not in (cell0, cell1, cell2):
+                    cells_used += sudoku.allowed[cell[0]][cell[1]].notNones()
             made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[trio[0]]), "hidden-trio",cells_used)
             made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[trio[1]]), "hidden-trio",cells_used)
             made_deduction |= _ban_numbers(sudoku, cell2, filter(lambda x: x not in except_nums, allowed_numbers[trio[2]]), "hidden-trio",cells_used)

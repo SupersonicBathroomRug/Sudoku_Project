@@ -83,6 +83,12 @@ class Consequence:
             return 'because of nake_pair' # TODO
         elif self.rule == 'hidden_pair':
             return 'because of hidden_pair' # TODO
+        elif self.rule == 'naked_trios':
+            return 'because of nake_triple' # TODO
+        elif self.rule == 'hidden_trios':
+            return 'because of hidden_triple' # TODO
+        elif self.rule == 'y-swing':
+            return 'because of y-swing' # TODO
         elif self.rule == 'square_row':
             return 'because [this number can only go in this row within a square] this number cannot go elsewhere in this row'
         elif self.rule == 'square_col':

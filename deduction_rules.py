@@ -1,4 +1,4 @@
-from itertools import product
+from itertools import combinations, permutations, product
 from tracker import MustBe
 from util import cell_section, local_to_global
 
@@ -179,7 +179,28 @@ def naked_trios(sudoku):
         (123) (12) (23) - {3/2/2/}
         (12) (23) (13) - {2/2/2}
         """
-        return [(i,j,k) for i in range(len(elems)) for j in range(i+1,len(elems)) for k in range(j+1,len(elems)) if len(elems[i])==3 and elems[i]==elems[j] and elems[j]==elems[k]]
+        l = []
+        for comb in combinations(range(9),3):
+            cell0 = set(elems[comb[0]])
+            cell1 = set(elems[comb[1]])
+            cell2 = set(elems[comb[2]])
+            for cell0, cell1, cell2 in permutations((cell0, cell1, cell2)):
+                if len(cell0) == 3 and cell0 == cell1 and cell1 == cell2:
+                    l.append(tuple(sorted((comb[0],comb[1],comb[2]))))
+                    break
+                elif len(cell0) == 3 and cell0 == cell1 and len(cell2) == 2 and cell2.issubset(cell1):
+                    l.append(tuple(sorted((comb[0],comb[1],comb[2]))))
+                    break
+                elif len(cell0) == 3 and len(cell1) == 2 and len(cell2) == 2 and \
+                    cell1.issubset(cell0) and cell2.issubset(cell0) and len(cell1.intersection(cell2)) == 1:
+                    l.append(tuple(sorted((comb[0],comb[1],comb[2]))))
+                    break
+                elif len(cell0) == 2 and len(cell1) == 2 and len(cell1) == 2 and \
+                    len(set.intersection(cell0,cell1)) == 2 and len(set.intersection(cell1,cell2)) == 2 and \
+                    len(set.intersection(cell0,cell2)) == 2 and len(set.intersection(cell0,cell1,cell2)) == 1:
+                    l.append(tuple(sorted((comb[0],comb[1],comb[2]))))
+                    break
+        return l
     
     def search_and_ban_in_subset(cells_to_check):
         """Searches all naked-trios in a subset of cells and bans these numbers from the other elements of subset."""
@@ -191,7 +212,7 @@ def naked_trios(sudoku):
             cell0 = cells_to_check[trio[0]]
             cell1 = cells_to_check[trio[1]]
             cell2 = cells_to_check[trio[2]]
-            deleted_numbers = sudoku.allowed[cell0[0]][cell0[1]].allowed()
+            deleted_numbers = set(sudoku.allowed[cell0[0]][cell0[1]].allowed() + sudoku.allowed[cell1[0]][cell1[1]].allowed() + sudoku.allowed[cell2[0]][cell2[1]].allowed())
             cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
             for cell in cells_to_check:
                 if cell not in (cell0, cell1, cell2):
@@ -203,27 +224,28 @@ def naked_trios(sudoku):
 def hidden_trios(sudoku):
     """RULE: if only A,B,C cells (in one row/col/sec) has a number x,y,z then delete every number from A,B,C except x,y,z."""
     def search_hidden_trios(elems):
+        res = dict()
         where_can_go = {i:[] for i in range(1,10)} # i-th number in which indices of elems can go
         for idx,elem in enumerate(elems):
             for num in elem:
                 where_can_go[num].append(idx)
-
-        three_potential_place = {k: tuple(v) for k,v in where_can_go.items() if len(v)==3}
-        quad_trios = set([trio for trio in three_potential_place.values() if list(three_potential_place.values()).count(trio) >= 4])
-        if len(quad_trios)>0 :
-            raise Exception("Contradiction in hidden trios") # TODO: better error handle
-        triple_trios = set([trio for trio in three_potential_place.values() if list(three_potential_place.values()).count(trio) == 3])
-        return {trio: tuple([k for k,v in three_potential_place.items() if v==trio]) for trio in triple_trios}
+        
+        for nums in combinations(range(1,10),3):
+            nums_can_go = tuple(set.union(set(where_can_go[nums[0]]), set(where_can_go[nums[1]]), set(where_can_go[nums[2]])))
+            if len(set(where_can_go[nums[0]])) > 1 and len(set(where_can_go[nums[1]])) > 1 and len(set(where_can_go[nums[2]])) > 1 and\
+                len(nums_can_go)==3:
+                res[nums_can_go] = nums
+        return res
 
     def search_and_ban_in_subset(cells_to_check):
         made_deduction = False
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
         trios = search_hidden_trios(allowed_numbers)
         for trio,except_nums in trios.items():
-            print("hidden_trios :)")
             cell0 = cells_to_check[trio[0]]
             cell1 = cells_to_check[trio[1]]
             cell2 = cells_to_check[trio[2]]
+            print(cell0, cell1, cell2, except_nums)
             cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
             made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[trio[0]]), "hidden-trio",cells_used)
             made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[trio[1]]), "hidden-trio",cells_used)

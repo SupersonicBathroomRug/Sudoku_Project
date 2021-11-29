@@ -232,7 +232,7 @@ def hidden_trios(sudoku):
     """RULE: If three number lying in three cells in the same row/col/sec, then ban the remaining numbers from these cells."""
     def search_hidden_trios(elems):
         res = dict()
-        where_can_go = {i:{} for i in range(1,10)} # i-th number in which indices of elems can go
+        where_can_go = {i:set() for i in range(1,10)} # i-th number in which indices of elems can go
         for idx,elem in enumerate(elems):
             for num in elem:
                 where_can_go[num].add(idx)

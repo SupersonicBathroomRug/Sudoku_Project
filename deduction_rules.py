@@ -1,6 +1,6 @@
 from itertools import combinations, permutations, product
 from tracker import MustBe
-from util import cell_section, local_to_global
+from util import cell_section, global_to_local, local_to_global
 
 
 def only_one_value(sudoku):
@@ -260,13 +260,22 @@ def yswing(sudoku):
     # (i,j)=AC and (k,l)=BC
     def allowed_nums_multicells(*args):
         return set.intersection(*[set(_allowed_numbers(sudoku,[arg])[0]) for arg in args])
+    
+    def cells_in_same_sec(cell, col={0,1,2}, row={0,1,2}):
+        """Returns a list with the cells that are not set and are in the same sec as the input.
+        You can also set the (local)col or (local)row."""
+        sec = cell_section(cell[0],cell[1])
+        res = []
+        for i,j in product(range(3),range(3)):
+            if i in row and j in col:
+                new_cell = local_to_global(sec, i, j)
+                if len(allowed_nums_multicells(new_cell)) > 0:
+                    res.append(new_cell)
+        return res
 
     made_deduction = False
     for cell1 in product(range(9),range(9)): # left-down
         for cell2 in product(range(9),range(9)):
-            if cell1 == (1,0) and cell2 == (3,5):
-                print("asd")
-                pass
             if len(allowed_nums_multicells(cell1)) == 2 and len(allowed_nums_multicells(cell2)) == 2 and \
                len(allowed_nums_multicells(cell1,cell2)) == 1 and \
                not (cell1[0] == cell2[0] and cell1[1] == cell2[1]):
@@ -288,12 +297,32 @@ def yswing(sudoku):
                         deleted_number = set.intersection(allowed_nums_multicells(cell1,cell2)).pop()
                         cells_used = sudoku.allowed[cell3[0]][cell3[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
                         made_deduction |= sudoku.ban(cell0[0],cell0[1],deleted_number,"y-swing",cells_used)
-                elif cell1[0] == cell2[0]:
-                    # One row
-                    #TODO
-                    pass
-                else:
-                    #TODO
-                    # One col
-                    pass
+                elif cell1[0] == cell2[0] and cell_section(cell1[0],cell1[1]) != cell_section(cell2[0],cell2[1]):
+                    # One row, but not in the same sec
+                    main_cell = cell1
+                    second_cell = cell2
+                    other_cells = cells_in_same_sec(main_cell, row = {0,1,2}-{global_to_local(second_cell[0],second_cell[1])[0]})
+                    for cell3 in other_cells:
+                        if len(allowed_nums_multicells(cell3)) == 2 and  \
+                            len(allowed_nums_multicells(main_cell,cell3)) == 1 and len(allowed_nums_multicells(second_cell,cell3)) == 1 and \
+                            len(allowed_nums_multicells(main_cell,second_cell, cell3)) == 0:
+                            deleted_number = allowed_nums_multicells(second_cell,cell3).pop()
+                            cells_used = sudoku.allowed[main_cell[0]][main_cell[1]].notNones() + sudoku.allowed[second_cell[0]][second_cell[1]].notNones() + sudoku.allowed[cell3[0]][cell3[1]].notNones()
+                            for cell4 in cells_in_same_sec(second_cell,row={global_to_local(cell3[0],cell3[1])[0]}):
+                                if deleted_number in allowed_nums_multicells(cell4):
+                                    made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"y-swing",cells_used)
+                elif cell1[1] == cell2[1] and cell_section(cell1[0],cell1[1]) != cell_section(cell2[0],cell2[1]):
+                    # One col, but not in the same sec
+                    main_cell = cell1
+                    second_cell = cell2
+                    other_cells = cells_in_same_sec(main_cell, col = {0,1,2}-{global_to_local(second_cell[0],second_cell[1])[1]})
+                    for cell3 in other_cells:
+                        if len(allowed_nums_multicells(cell3)) == 2 and  \
+                            len(allowed_nums_multicells(main_cell,cell3)) == 1 and len(allowed_nums_multicells(second_cell,cell3)) == 1 and \
+                            len(allowed_nums_multicells(main_cell,second_cell, cell3)) == 0:
+                            deleted_number = allowed_nums_multicells(second_cell,cell3).pop()
+                            cells_used = sudoku.allowed[main_cell[0]][main_cell[1]].notNones() + sudoku.allowed[second_cell[0]][second_cell[1]].notNones() + sudoku.allowed[cell3[0]][cell3[1]].notNones()
+                            for cell4 in cells_in_same_sec(second_cell,col={global_to_local(cell3[0],cell3[1])[1]}):
+                                if deleted_number in allowed_nums_multicells(cell4):
+                                    made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"y-swing",cells_used)
     return made_deduction

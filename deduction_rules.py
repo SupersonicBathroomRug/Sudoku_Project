@@ -170,13 +170,17 @@ def line_square(sudoku):
     return made_deduction
 
 def naked_trios(sudoku):
-    """RULE: if v,w,x can be written only to three cells in this row/col/sec, then remove it from the other cells of the row/col/sec."""
+    """RULE: Any group of three cells in the same unit that contain IN TOTAL three candidates is a Naked Triple.
+    Each cell can have two or three numbers, as long as in combination all three cells have only three numbers.
+    When this happens, the three candidates can be removed from all other cells in the same unit.
+    """
 
     def search_for_naked_trios(elems):
-        """Returns a list of 3-tuples, where every tuple contains the indeces of the identical inputs. The cases:
+        """Returns a list of 3-tuples, where every 3-tuple contains the indeces of `elems` which form a Naked Triple.
+        The combinations of candidates for a Naked Triple will be one of the following:
         (123) (123) (123) - {3/3/3} (in terms of candidates per cell)
         (123) (123) (12) - {3/3/2} (or some combination thereof)
-        (123) (12) (23) - {3/2/2/}
+        (123) (12) (23) - {3/2/2}
         (12) (23) (13) - {2/2/2}
         """
         l = []
@@ -192,12 +196,12 @@ def naked_trios(sudoku):
                     l.append(tuple(sorted((comb[0],comb[1],comb[2]))))
                     break
                 elif len(cell0) == 3 and len(cell1) == 2 and len(cell2) == 2 and \
-                    cell1.issubset(cell0) and cell2.issubset(cell0) and len(cell1.intersection(cell2)) == 1:
+                    cell1.issubset(cell0) and cell2.issubset(cell0) and len(cell1&cell2) == 1:
                     l.append(tuple(sorted((comb[0],comb[1],comb[2]))))
                     break
                 elif len(cell0) == 2 and len(cell1) == 2 and len(cell1) == 2 and \
-                    len(set.intersection(cell0,cell1)) == 2 and len(set.intersection(cell1,cell2)) == 2 and \
-                    len(set.intersection(cell0,cell2)) == 2 and len(set.intersection(cell0,cell1,cell2)) == 1:
+                    len(cell0&cell1) == 2 and len(cell1&cell2) == 2 and \
+                    len(cell0&cell2) == 2 and len(cell0&cell1&cell2) == 1:
                     l.append(tuple(sorted((comb[0],comb[1],comb[2]))))
                     break
         return l
@@ -225,14 +229,14 @@ def hidden_trios(sudoku):
     """RULE: if only A,B,C cells (in one row/col/sec) has a number x,y,z then delete every number from A,B,C except x,y,z."""
     def search_hidden_trios(elems):
         res = dict()
-        where_can_go = {i:[] for i in range(1,10)} # i-th number in which indices of elems can go
+        where_can_go = {i:{} for i in range(1,10)} # i-th number in which indices of elems can go
         for idx,elem in enumerate(elems):
             for num in elem:
-                where_can_go[num].append(idx)
+                where_can_go[num].add(idx)
         
         for nums in combinations(range(1,10),3):
-            nums_can_go = tuple(set.union(set(where_can_go[nums[0]]), set(where_can_go[nums[1]]), set(where_can_go[nums[2]])))
-            if len(set(where_can_go[nums[0]])) > 1 and len(set(where_can_go[nums[1]])) > 1 and len(set(where_can_go[nums[2]])) > 1 and\
+            nums_can_go = tuple(where_can_go[nums[0]] | where_can_go[nums[1]] | where_can_go[nums[2]])
+            if len(where_can_go[nums[0]]) > 1 and len(where_can_go[nums[1]]) > 1 and len(where_can_go[nums[2]]) > 1 and\
                 len(nums_can_go)==3:
                 res[nums_can_go] = nums
         return res

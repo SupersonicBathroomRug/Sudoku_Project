@@ -93,7 +93,7 @@ def nake_pair(sudoku):
     return _apply_for_nines(search_and_ban_in_subset)
 
 def hidden_pair(sudoku):
-    """RULE: if only v and w has number x and y then delete every number from v and w except x and y."""
+    """RULE: If two number lying in two cells in the same row/col/sec, then ban the remaining numbers from these cells."""
     def search_hidden_pairs(elems):
         where_can_go = {i:[] for i in range(1,10)} # i-th number in which indices of elems can go
         for idx,elem in enumerate(elems):
@@ -229,7 +229,7 @@ def naked_trios(sudoku):
     return _apply_for_nines(search_and_ban_in_subset)
 
 def hidden_trios(sudoku):
-    """RULE: if only A,B,C cells (in one row/col/sec) has a number x,y,z then delete every number from A,B,C except x,y,z."""
+    """RULE: If three number lying in three cells in the same row/col/sec, then ban the remaining numbers from these cells."""
     def search_hidden_trios(elems):
         res = dict()
         where_can_go = {i:{} for i in range(1,10)} # i-th number in which indices of elems can go
@@ -265,9 +265,17 @@ def hidden_trios(sudoku):
 
 
 def yswing(sudoku):
-    '''RULE: if (i,j)=AC and (k,l)=BC and (i,l)=AB then remove C from (j,k).'''
+    '''RULE: If three of the corners of a rectangular have two candidates AC, AB and BC, respectively, then C can be removed from the fourth corner.
+    Note that we don't actually need a rectangular, it is also enought to have a circle.
+    E.g. (C+ means that there can be other numbers as C)
+     ============================
+     || C+  AB  C || -  AC  -  ||
+     || -   -   - || -  -   -  ||
+     || BC  -   - || C+ C+  C+ ||
+     ============================'''
     # (i,j)=AC and (k,l)=BC
     def allowed_nums_multicells(*args):
+        """Input: cells. Output: numbers that can be written in all cell."""
         return set.intersection(*[set(_allowed_numbers(sudoku,[arg])[0]) for arg in args])
     
     def cells_in_same_sec(cell, col={0,1,2}, row={0,1,2}):

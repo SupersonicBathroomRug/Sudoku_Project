@@ -513,7 +513,7 @@ class Sudoku:
         start_allowed = get_allowed()
         start_board = copy.deepcopy(sud.board)
         cache = [] # each element is a tuple, with the first element being
-        7# [a list of tuples (1 tuple for each lemma), with its first element being
+        # [a list of tuples (1 tuple for each lemma), with its first element being
         #   the current 'allowed' value, and the second the string corresponding to this step, the third is the position
         #   for the last lemma, the new board is also saved]
         #   and the second the board before this step

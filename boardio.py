@@ -99,7 +99,7 @@ Quit with 'q', get this help with 'h'.''')
 def fetch_puzzle(url):
     '''Downloads a puzzle from a given `url`, and converts it into a `list` of `list`s. Currently only supports 
     puzzles on http://nine.websudoku.com/.'''
-    if url.startswith('https://nine.websudoku.com/'):
+    if re.match(r'https?://(?:nine|www)\.websudoku\.com/', url) is not None:
         results = requests.get(url, headers=headers)
         soup = bs4.BeautifulSoup(results.text, features='lxml')
         buttons = [row.select('input') for row in soup.select('table[id="puzzle_grid"] tr')]

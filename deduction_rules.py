@@ -32,7 +32,6 @@ def only_this_cell(sudoku):
             made_deduction |= sudoku.make_deduction(MustBe((i,sudoku.colpos[i][j].last_one()),j+1,'colpos'),
                 'colpos',sudoku.colpos[i][j].notNones())
         if len(sudoku.secpos[i][j])==1:
-            p = local_to_global(i,*sudoku.secpos[i][j].last_one())
             made_deduction |= sudoku.make_deduction(MustBe((i,sudoku.secpos[i][j].last_one()),j+1,'secpos'),
                 'secpos',sudoku.secpos[i][j].notNones())
     return made_deduction

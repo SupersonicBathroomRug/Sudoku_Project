@@ -1,6 +1,7 @@
 # ======================================================
 #                      MAIN WORKSPACE
 # ======================================================
+from boardio import fetch_puzzle
 from sudoku import *
 
 
@@ -114,5 +115,9 @@ def swordfishtest():
          [9,6,0,7,4,2,3,0,5]])
     sud.interactive_solve()
 
+def fetchsolve(url="https://nine.websudoku.com/?level=4&set_id=6169806040"):
+    sud=Sudoku(board=fetch_puzzle(url))
+    sud.interactive_solve()
+
 if __name__ == "__main__":
-    example2()
+    fetchsolve()

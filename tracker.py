@@ -83,14 +83,14 @@ class Consequence:
             return 'because of nake_pair' # TODO
         elif self.rule == 'hidden_pair':
             return 'because of hidden_pair' # TODO
-        elif self.rule == 'square_row':
-            return 'because [this number can only go in this row within a square] this number cannot go elsewhere in this row'
-        elif self.rule == 'square_col':
-            return 'because [this number can only go in this col within a square] this number cannot go elsewhere in this col'
-        elif self.rule == 'row_square':
-            return 'because [this number can only go in this square within its row] this number cannot go in other rows in this square'
-        elif self.rule == 'col_square':
-            return 'because [this number can only go in this square within its col] this number cannot go in other cols in this square'
+        elif self.rule == 'square_line':
+            return f'because of square_line: [this number can only go in {self.details["rc"]} {self.details["line"]} within square {self.details["sec"]}] so this number cannot go elsewhere in this {self.details["rc"]}'
+        elif self.rule == 'line_square':
+            return f'because of line_square: [this number can only go in square {self.details["sec"]} within {self.details["rc"]} {self.details["line"]}] so this number cannot go in other {self.details["rc"]}s in this square'
+        elif self.rule == 'xwing':
+            return f'because of xwing in {self.details["rc"]} {self.details["lines"]}'
+        elif self.rule == 'swordfish':
+            return f'because of swordfish {self.details["rc"]} {self.details["lines"]}'
         else:
             return 'because UNDEFINED RULE'
     

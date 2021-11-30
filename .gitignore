@@ -6,3 +6,10 @@ playground.py
 .ipynb_checkpoints/
 __pycache__/
 output/
+bin/
+include/
+lib/
+share/
+lib64
+pyvenv.cfg
+.main.py.swp

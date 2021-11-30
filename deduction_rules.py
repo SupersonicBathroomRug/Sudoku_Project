@@ -1,3 +1,4 @@
+import itertools
 from itertools import product
 from tracker import MustBe
 from util import cell_section, local_to_global
@@ -51,10 +52,10 @@ def _apply_for_nines(func):
         made_deduction |= func(cells_to_check)
     return made_deduction
 
-def _ban_numbers(sudoku, cell,numbers,rule, cells_used):
+def _ban_numbers(sudoku, cell,numbers,rule, cells_used,details=None):
     made_deduction = False
     for number in numbers:
-        made_deduction |= sudoku.ban(cell[0],cell[1],number,rule,cells_used)
+        made_deduction |= sudoku.ban(cell[0],cell[1],number,rule,cells_used,details)
     return made_deduction
 
 def _allowed_numbers(sudoku, cells):
@@ -134,14 +135,14 @@ def square_line(sudoku):
                 reason=[info for key, info in sudoku.secpos[sec][val].items() if key[0] != row and info is not None]
                 for col in range(9):
                     if col//3!=sec%3: #trust me, I'm an engineer
-                        made_deduction|=sudoku.ban(row,col,val+1,"square_row",reason)
+                        made_deduction|=sudoku.ban(row,col,val+1,"square_line",reason,details={'rc':'row', 'line':row, 'sec': sec})
             #for col
             if len(set((j for i,j in places)))==1:
                 _,col=local_to_global(sec,*places[0])
                 reason = [info for key, info in sudoku.secpos[sec][val].items() if key[1] != col and info is not None]
                 for row in range(9):
                     if row//3!=sec//3:
-                        made_deduction|=sudoku.ban(row,col,val+1,"square_col",reason)
+                        made_deduction|=sudoku.ban(row,col,val+1,"square_line",reason,details={'rc':'col', 'line':row, 'sec': sec})
     return made_deduction
 
 def line_square(sudoku):
@@ -156,7 +157,7 @@ def line_square(sudoku):
                 for i,j in product(range(3),range(3)):
                     r,c=local_to_global(sec,i,j)
                     if r!=row:
-                        made_deduction|=sudoku.ban(r,c,val+1,"row_square",reason)
+                        made_deduction|=sudoku.ban(r,c,val+1,"line_square",reason,details={'rc':'row', 'line':row, 'sec': sec})
     for col in range(9):
         for val in range(9):
             places=sudoku.colpos[col][val].allowed()
@@ -166,5 +167,56 @@ def line_square(sudoku):
                 for i,j in product(range(3),range(3)):
                     r,c=local_to_global(sec,i,j)
                     if c!=col:
-                        made_deduction|=sudoku.ban(r,c,val+1,"col_square",reason)
+                        made_deduction|=sudoku.ban(r,c,val+1,"line_square",reason,details={'rc':'col', 'line':col, 'sec': sec})
+    return made_deduction
+
+def xwing(sudoku):
+    '''RULE: if for two rows/cols a given number can only go in 2 places each and these 4 places form a rectangle then ban given number from corresponding cols/rows'''
+    made_deduction=False
+    for val in range(9):
+        #rows with 2
+        possible={i:sudoku.rowpos[i][val].allowed() for i in range(9) if len(sudoku.rowpos[i][val])==2}
+        for i,j in itertools.combinations(possible.keys(),2):
+            if possible[i]==possible[j]:
+                reason = sudoku.rowpos[i][val].notNones() + sudoku.rowpos[j][val].notNones()
+                for r in range(9):
+                    for c in possible[i]:
+                        if r!=i and r!=j:
+                            made_deduction|=sudoku.ban(r,c,val+1,"xwing",reason,details={'rc':'rows', 'lines':[i,j]})
+        #cols with 2
+        possible={i:sudoku.colpos[i][val].allowed() for i in range(9) if len(sudoku.colpos[i][val])==2}
+        for i,j in itertools.combinations(possible.keys(),2):
+            if possible[i]==possible[j]:
+                reason=sudoku.colpos[i][val].notNones()+sudoku.colpos[j][val].notNones()
+                for c in range(9):
+                    for r in possible[i]:
+                        if c!=i and c!=j:
+                            made_deduction|=sudoku.ban(r,c,val+1,"xwing",reason,details={'rc':'cols', 'lines':[i,j]})
+    return made_deduction
+
+def swordfish(sudoku):
+    '''RULE: if for 3 rows/cols a given number can only go in 2 or 3 places each, and these are in 3 cols/rows then ban given number from cols/rows'''
+    made_deduction=False
+    #rows
+    for val in range(9):
+        possible = {i: sudoku.rowpos[i][val].allowed() for i in range(9) if len(sudoku.rowpos[i][val]) in [2,3]}
+        for i,j,k in itertools.combinations(possible.keys(),3):
+            cols=list(set().union(possible[i],possible[j],possible[k]))
+            if len(cols)==3:
+                reason = sudoku.rowpos[i][val].notNones() + sudoku.rowpos[j][val].notNones() + sudoku.rowpos[k][val].notNones()
+                for r in range(9):
+                    for c in cols:
+                        if r not in [i,j,k]:
+                            made_deduction |= sudoku.ban(r, c, val + 1, "swordfish", reason,details={'rc':'rows', 'lines':[i,j,k]})
+    #cols
+    for val in range(9):
+        possible = {i: sudoku.colpos[i][val].allowed() for i in range(9) if len(sudoku.colpos[i][val]) in [2,3]}
+        for i,j,k in itertools.combinations(possible.keys(),3):
+            cols=list(set().union(possible[i],possible[j],possible[k]))
+            if len(cols)==3:
+                reason = sudoku.colpos[i][val].notNones() + sudoku.colpos[j][val].notNones() + sudoku.colpos[k][val].notNones()
+                for c in range(9):
+                    for r in cols:
+                        if c not in [i,j,k]:
+                            made_deduction |= sudoku.ban(r, c, val + 1, "swordfish", reason,details={'rc':'cols', 'lines':[i,j,k]})
     return made_deduction

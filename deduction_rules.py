@@ -114,10 +114,11 @@ def hidden_pair(sudoku):
         for pair,except_nums in pairs.items():
             cell0 = cells_to_check[pair[0]]
             cell1 = cells_to_check[pair[1]]
+            used_nums = set(range(1,10))-set(except_nums)
             cells_used = []
             for cell in cells_to_check:
                 if cell not in (cell0, cell1):
-                    cells_used += sudoku.allowed[cell[0]][cell[1]].notNones()
+                    cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in used_nums if n in _allowed_numbers(sudoku,cell)]
             made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[pair[0]]), "hidden_pair",cells_used)
             made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[pair[1]]), "hidden_pair",cells_used)
 
@@ -252,10 +253,11 @@ def hidden_trios(sudoku):
             cell0 = cells_to_check[trio[0]]
             cell1 = cells_to_check[trio[1]]
             cell2 = cells_to_check[trio[2]]
+            used_nums = set(range(1,10))-set(except_nums)
             cells_used = []
             for cell in cells_to_check:
                 if cell not in (cell0, cell1, cell2):
-                    cells_used += sudoku.allowed[cell[0]][cell[1]].notNones()
+                    cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in used_nums if n in _allowed_numbers(sudoku,cell)]
             made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[trio[0]]), "hidden-trio",cells_used)
             made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[trio[1]]), "hidden-trio",cells_used)
             made_deduction |= _ban_numbers(sudoku, cell2, filter(lambda x: x not in except_nums, allowed_numbers[trio[2]]), "hidden-trio",cells_used)

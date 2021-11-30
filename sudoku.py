@@ -512,11 +512,12 @@ class Sudoku:
         get_allowed = lambda : [ [[(coldict[v+1] is None) for v in range(9)] for coldict in rowarray] for rowarray in sud.allowed]
         start_allowed = get_allowed()
         start_board = copy.deepcopy(sud.board)
-        cache = [] # each element is a tuple, with the first element being [a list of tuples (1 tuple for each lemma), with its first element being 
-        #   the current 'allowed' value, and the second the string corresponding to this step; for the last lemma, the new board is also saved] and
-        #   the second the board before this step
-        # these two are used during the computation phase only:
-        last_board = copy.deepcopy(start_board)
+        cache = [] # each element is a tuple, with the first element being
+        7# [a list of tuples (1 tuple for each lemma), with its first element being
+        #   the current 'allowed' value, and the second the string corresponding to this step, the third is the position
+        #   for the last lemma, the new board is also saved]
+        #   and the second the board before this step
+        last_board = copy.deepcopy(start_board) #temporary
         for i, step in enumerate(self.proof):
             cache.append(([], copy.deepcopy(last_board)))
             for lemma, lemma_string in zip(step.proof, step.to_strings(False, True)):
@@ -524,13 +525,13 @@ class Sudoku:
                 if isinstance(lemma.result, CantBe):
                     pos = lemma.result.get_pos()
                     if sud.allowed[pos[0]][pos[1]][lemma.result.value] is None:
-                        sud.ban(*lemma.result.get_pos(),lemma.result.value,'deus_ex',[])
-                        cache[-1][0].append((get_allowed(), lemma_string))
+                        sud.ban(*pos,lemma.result.value,'deus_ex',[])
+                        cache[-1][0].append((get_allowed(), lemma_string, pos))
                 else: # isinstance(lemma.result, MustBe):
                     pos = lemma.result.get_pos()
                     sud[pos] = lemma.result.value
                     last_board[pos[0]][pos[1]] = lemma.result.value
-                    cache[-1][0].append((get_allowed(), lemma_string, copy.deepcopy(last_board)))
+                    cache[-1][0].append((get_allowed(), lemma_string, pos, copy.deepcopy(last_board)))
         # Start interactive part
         proofstep = -1
         lemma = 0
@@ -577,9 +578,9 @@ class Sudoku:
             print(f"[#{proofstep}, k={step.k}, k-opt={step.k_opt}, approx={step.approximation}, greedy={step.greedy}]")
             print(f"{step.position} is {step.value}, because:")
             if lemma < len(cache[proofstep][0]) - 1:
-                boardio.print_detailed_board(cache[proofstep][1],possibles(cache[proofstep][0][lemma][0]))
+                boardio.print_detailed_board(cache[proofstep][1],possibles(cache[proofstep][0][lemma][0]),cache[proofstep][0][lemma][2])
             else:
-                boardio.print_detailed_board(cache[proofstep][0][lemma][2],possibles(cache[proofstep][0][lemma][0]))
+                boardio.print_detailed_board(cache[proofstep][0][lemma][3],possibles(cache[proofstep][0][lemma][0]),cache[proofstep][0][lemma][2])
             print(cache[proofstep][0][lemma][1])
 
 

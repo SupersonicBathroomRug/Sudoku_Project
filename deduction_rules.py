@@ -197,13 +197,14 @@ def xwing(sudoku):
 def swordfish(sudoku):
     '''RULE: if for 3 rows/cols a given number can only go in 2 or 3 places each, and these are in 3 cols/rows then ban given number from cols/rows'''
     made_deduction=False
+    stripped_dict = lambda dic, banned: [info for key,info in dic.items() if (key not in banned) and info is not None] #for processing
     #rows
     for val in range(9):
         possible = {i: sudoku.rowpos[i][val].allowed() for i in range(9) if len(sudoku.rowpos[i][val]) in [2,3]}
         for i,j,k in itertools.combinations(possible.keys(),3):
             cols=list(set().union(possible[i],possible[j],possible[k]))
             if len(cols)==3:
-                reason = sudoku.rowpos[i][val].notNones() + sudoku.rowpos[j][val].notNones() + sudoku.rowpos[k][val].notNones()
+                reason = stripped_dict(sudoku.rowpos[i][val],cols) + stripped_dict(sudoku.rowpos[j][val],cols) + stripped_dict(sudoku.rowpos[k][val],cols)
                 for r in range(9):
                     for c in cols:
                         if r not in [i,j,k]:
@@ -212,11 +213,11 @@ def swordfish(sudoku):
     for val in range(9):
         possible = {i: sudoku.colpos[i][val].allowed() for i in range(9) if len(sudoku.colpos[i][val]) in [2,3]}
         for i,j,k in itertools.combinations(possible.keys(),3):
-            cols=list(set().union(possible[i],possible[j],possible[k]))
-            if len(cols)==3:
-                reason = sudoku.colpos[i][val].notNones() + sudoku.colpos[j][val].notNones() + sudoku.colpos[k][val].notNones()
+            rows=list(set().union(possible[i],possible[j],possible[k]))
+            if len(rows)==3:
+                reason = stripped_dict(sudoku.colpos[i][val],rows) + stripped_dict(sudoku.colpos[j][val],rows) + stripped_dict(sudoku.colpos[k][val],rows)
                 for c in range(9):
-                    for r in cols:
+                    for r in rows:
                         if c not in [i,j,k]:
                             made_deduction |= sudoku.ban(r, c, val + 1, "swordfish", reason,details={'rc':'cols', 'lines':[i,j,k]})
     return made_deduction

@@ -17,7 +17,7 @@ from consoleapp import ConsoleApp
 from consolestyle import fclr, style
 import boardio
 from boardio import print
-from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell, line_square, square_line
+from deduction_rules import hidden_pair, nake_pair, only_one_value, only_this_cell, line_square, square_line, xwing, swordfish
 from tracker import CantBe, Consequence, Deduction, IsValue, Knowledge, MustBe, ProofStep
 from graph import print_graph
 from util import cell_section, local_to_global, global_to_local, diclen
@@ -136,8 +136,8 @@ class Sudoku:
             self.secpos[cell_section(row,col)][val-1][(i//3,i%3)] = im_filled
         # no more values can be written this position...
         # TODO: this is useless, as these values won't be accessed again
-        #for i in range(9):
-        #    self.allowed[row][col][i] = im_filled
+        for i in range(1, 10):
+           self.allowed[row][col][i] = im_filled
         for i in range(9): # ...in this 3×3 section
             self.secpos[cell_section(row,col)][i][global_to_local(row, col)] = im_filled
         for i in range(9): # ...in this row and column
@@ -165,13 +165,13 @@ class Sudoku:
         return self.board[key[0]][key[1]]
 
     # >>> STORING DEDUCTIONS
-    def make_deduction(self, knowledge, rule, reasons=None):
+    def make_deduction(self, knowledge, rule, reasons=None, details=None):
         '''Store a deduction which yields `knowledge` applying `rule` to `Knowlegde` instances `reasons`.\\
         Return `True` if this is a new deduction.'''
         p = knowledge.get_pos()
         if self.board[p[0]][p[1]] != 0:
             return False
-        cons = Consequence(reasons, rule)
+        cons = Consequence(reasons, rule, details)
         if isinstance(knowledge, MustBe):
             for ded in self.filler_deductions: # if this deduction was already made, save this as an alternative proof
                 if ded.result == knowledge:
@@ -241,6 +241,10 @@ class Sudoku:
                 only_this_cell(self)
                 made_deduction |= nake_pair(self)
                 made_deduction |= hidden_pair(self)
+                made_deduction |= square_line(self)
+                made_deduction |= line_square(self)
+                made_deduction |= xwing(self)
+                made_deduction |= swordfish(self)
             except FillImmediately as f:
                 greedy_deduction = f.deduction
                 made_deduction = False
@@ -443,13 +447,13 @@ class Sudoku:
         '''Checks whether this sudoku has a unique solution. See `check_unicity()`.'''
         return check_unicity(self.board, False)
     
-    def ban(self, row, col, value, rule, cells_used):
+    def ban(self, row, col, value, rule, cells_used, details=None):
         '''Ban `value` from `(row, col)` using `rule` (`str`  identifier) applied to `cells_used` (`list` of `Knowledge`/`Deduction` instances).'''
         made_deduction = False
-        made_deduction |= self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used)
-        made_deduction |= self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used)
-        made_deduction |= self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used)
-        made_deduction |= self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used)
+        made_deduction |= self.make_deduction(CantBe((row,col),value,'cell'),rule,cells_used,details)
+        made_deduction |= self.make_deduction(CantBe((row,col),value,'rowpos'),rule,cells_used,details)
+        made_deduction |= self.make_deduction(CantBe((col,row),value,'colpos'),rule,cells_used,details)
+        made_deduction |= self.make_deduction(CantBe((cell_section(row,col),global_to_local(row,col)),value,'secpos'),rule,cells_used,details)
         # STREAMLINE
         if made_deduction and self.reset_always:
             raise ResetDeductionSearch()

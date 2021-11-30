@@ -126,7 +126,8 @@ class ConsoleApp:
             self.started = True
             if self.welcome_text is not None and self.welcome_text != '':
                 print(self.welcome_text)
-        i = input(fclr.GREEN+self.cursor)
+        print(fclr.GREEN, end='')
+        i = input(self.cursor)
         print(fclr.DEFAULT, end='')
         return self.parse(i)
 

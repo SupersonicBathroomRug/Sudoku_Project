@@ -216,7 +216,6 @@ def naked_trios(sudoku):
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
         naked_trios = search_for_naked_trios(allowed_numbers)
         for trio in naked_trios:
-            print("naked_trios :)")
             cell0 = cells_to_check[trio[0]]
             cell1 = cells_to_check[trio[1]]
             cell2 = cells_to_check[trio[2]]

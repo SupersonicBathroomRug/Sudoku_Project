@@ -5,7 +5,10 @@
 
 import re
 from consolestyle import fclr, style
-import readline
+try:
+    import readline
+except:
+    pass
 
 class ConsoleApp:
     '''Each instance of this class is a textual input parser, which makes it easy to interpret variable queries, variable setting commands,

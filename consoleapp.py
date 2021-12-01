@@ -5,6 +5,8 @@
 
 import re
 from consolestyle import fclr, style
+import readline
+
 class ConsoleApp:
     '''Each instance of this class is a textual input parser, which makes it easy to interpret variable queries, variable setting commands,
     and function calls. When iterated over (or when `.input()` is called), it requests input from `stdin` (with a custom prompt), and returns 

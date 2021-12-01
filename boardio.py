@@ -77,7 +77,7 @@ def edit_sudoku(board=None):
     nums = set(map(str,range(10)))
     while(True):
         print_board(board, selected)
-        i = getch().decode('utf-8')
+        i = getch()
         if i in nums:
             board[selected[0]][selected[1]] = int(i)
         elif i == 'w':

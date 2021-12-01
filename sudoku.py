@@ -559,7 +559,7 @@ class Sudoku:
         boardio.print_detailed_board(start_board, possibles(start_allowed))
         while True:
             print("<Press 'q' to quit, 'j' to jump to a given proofstep, 'ad' to move between lemmas, and 'ws' to move between proofsteps.>\n\n")
-            key = boardio.getch().decode('utf-8')
+            key = boardio.getch()
             # Parse keys
             if key == 'q':
                 print("Shutting down playback session...")

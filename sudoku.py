@@ -36,6 +36,9 @@ If k-optimization is OFF, should we immediately fill in a cell if we deduce its 
 sudoku_app.add_variable(r'reset(?:[-_]always)?',ConsoleApp.Patterns.BOOLONOFF,
     '''After a new deduction has been made in the solving process, should we continue looking for more complicated deductions, or should we
 immediately jump back to the simplest deductions, and look for them instead? This may or may not speed up the solving process.''')
+sudoku_app.add_variable(r'ignore(?:[-_]filled)?',ConsoleApp.Patterns.BOOLONOFF,
+    '''If a cell is filled, should we force the solver to use that as a reason to why more numbers can't be written there?
+Similar to 'greedy': might make k-optimization with k<8 break, but provides a significant speedup.''')
 # FUNCTIONS
 sudoku_app.add_function(r'set',[(r'row',r'\d'),(r'col(?:umn)?',r'\d:?'),(r'val(?:ue)?',r'\d')],description=
     '''Set the cell given by 'row' and 'column' to value 'value', if possible.''')
@@ -79,7 +82,7 @@ class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
 
     # >>> DATA MANIPULATION
-    def __init__(self, board=None, tuples=None, k_opt=False, ip_time_limit=0.5, greedy=True, reset_always=False):
+    def __init__(self, board=None, tuples=None, k_opt=False, ip_time_limit=0.5, greedy=True, reset_always=False, ignore_filled=False):
         '''Initialize a sudoku either with:\n
         `board`: `list` of `list`s\\
         >   A matrix representation of the sudoku table, with 0s in empty cells.
@@ -108,6 +111,7 @@ class Sudoku:
         self.ip_time_limit = ip_time_limit
         self.greedy = greedy
         self.reset_always = reset_always
+        self.ignore_filled = ignore_filled
         # stats:
         self.deduction_time = 0
         self.k_opt_time = 0
@@ -196,8 +200,14 @@ class Sudoku:
                 ret = old.add_reason(cons) # STREAMLINE is in self.ban in this case 
                 return ret
             else:
-                self._store_new_deduction(Deduction([cons], knowledge))
-                return True
+                if old is None: 
+                    self._store_new_deduction(Deduction([cons], knowledge))
+                    return True
+                elif not self.ignore_filled:
+                    return False
+                else:
+                    self._store_new_deduction(Deduction([Consequence([old], 'filled'), cons], knowledge)) # wrap IsValue in Consequence
+                    return True
 
     def _get_knowledge(self, k):
         '''Given a Knowledge instance `k`, returns the data stored at its position, corresponding to its value.\\
@@ -409,6 +419,11 @@ class Sudoku:
             elif action == 'set_var' and rname == r'reset(?:[-_]always)?':
                 self.reset_always = ConsoleApp.str_to_bool(data)
                 print(f"reset-always was set to {self.reset_always}")
+            elif action == 'get_var' and rname == r'ignore(?:[-_]filled)?':
+                print(f"ignore-filled is {'ON' if self.reset_always else 'OFF'}")
+            elif action == 'set_var' and rname == r'ignore(?:[-_]filled)?':
+                self.ignore_filled = ConsoleApp.str_to_bool(data)
+                print(f"ignore-filled was set to {self.ignore_filled}")
             elif action == 'func' and rname == r'stat(?:istic)?s?':
                 file = ConsoleApp.get_text(data['params']['file'])
                 if file != '':
@@ -486,7 +501,8 @@ class Sudoku:
         print(f"k-opzimization:            {'ON' if self.k_opt else 'OFF'}")
         print(f"ip-time-limit:             {'UNLIMITED' if self.ip_time_limit is None else f'{self.ip_time_limit} s'}")
         print(f"greedy:                    {'ON' if self.greedy else 'OFF'}")
-        print(f"reset-always:              {'ON' if self.reset_always else 'OFF'}\n")
+        print(f"reset-always:              {'ON' if self.reset_always else 'OFF'}")
+        print(f"ignore-filled:             {self.ignore_filled}\n")
         print(f"| Failed solves:           {self.failed_solves}")
         print(f"| Deus ex bans used:       {len(set().union(*(s.deus_ex_steps() for s in self.proof)))}")
         print(f"| Deus ex sets:            {self.deus_ex_sets}\n")

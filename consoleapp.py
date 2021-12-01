@@ -40,7 +40,7 @@ class ConsoleApp:
         -   `QUOTETEXT`: match a text which is quoted by `'` or `"`'''
         BOOL = r'(?:true|True|TRUE|false|False|FALSE)'
         ONOFF = r'(?:on|On|ON|off|Off|OFF)'
-        BOOLONOFF = r'''[^'"\s]\S*|'.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*"'''
+        BOOLONOFF = r'''(?:true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF)'''
         TEXT = r'''[^'"\s]\S*|'.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*"'''
         QUOTETEXT = r''''.+?(?<!\\)(?:\\\\)*'|".+?(?<!\\)(?:\\\\)*"'''
         FLOAT = r'[-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:e[+-]?\d+)?'

@@ -71,6 +71,8 @@ class Consequence:
     def __str__(self):
         if self.rule == 'deus_ex':
             return 'because the gods said so'
+        elif self.rule == 'filled': # used only if 'ignore_filled' is True
+            return 'because there is already a number here'
         elif self.rule == 'allowed':
             return 'because only this number can be written here'
         elif self.rule == 'rowpos':
@@ -201,7 +203,6 @@ class ProofStep:
                 print('ERROR: IP solver failed.')
                 k_opt = False
         if not k_opt: # k_opt == False, or k-optimization failed miserably
-            print("k-opt failed")
             self.approximation = True
             chosen_deduction = next(iter(deductions)) if greedy_deduction is None else greedy_deduction
             # REMOVE CYCLES AND REDUNDANCY
@@ -235,7 +236,6 @@ class ProofStep:
         for cons in step.consequence_of: # iterate over all possible reasonings...
             for info in cons.of: # if all predicates can be peacefully resolved:
                 if not self._make_acyclic(info, stack, allowed_paths):
-                    print("Not acyclic.")
                     self.approximation = True
                     break
             else:

@@ -89,8 +89,8 @@ def example3():
         [2, 0, 3, 0, 0, 0, 1, 0, 0]])
     sud.interactive_solve()
 
-# >>> EXAMPLE y-wing1
-# This is an example where you can use y-wing
+# >>> EXAMPLE ywing1
+# This is an example where you can use ywing
 def example_ywing1():
     sud = Sudoku(board=[
         [9, 0, 0, 2, 4, 0, 0, 0, 0], 
@@ -105,7 +105,7 @@ def example_ywing1():
     sud.interactive_solve()
 
 # >>> EXAMPLE ywing2
-# This is an example where you can use y-wing
+# This is an example where you can use ywing
 def example_ywing2():
     sud = Sudoku(board=[
         [9, 0, 0, 2, 4, 0, 0, 0, 0], 

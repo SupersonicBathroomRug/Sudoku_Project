@@ -264,7 +264,7 @@ def hidden_trios(sudoku):
     return _apply_for_nines(search_and_ban_in_subset)
 
 
-def yswing(sudoku):
+def ywing(sudoku):
     '''RULE: If three of the corners of a rectangular have two candidates AC, AB and BC, respectively, then C can be removed from the fourth corner.
     Note that we don't actually need a rectangular, it is also enought to have a circle.
     E.g. (C+ means that there can be other numbers as C)
@@ -308,7 +308,7 @@ def yswing(sudoku):
                         deleted_number = set.intersection(allowed_nums_multicells(cell1,cell2)).pop()
                         cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
                         details = {'main':cell0,'main_allowed':allowed_nums_multicells(cell3),'second1':cell1,'second1_allowed':allowed_nums_multicells(cell1),'second2':cell2,'second2_allowed':allowed_nums_multicells(cell2)}
-                        made_deduction |= sudoku.ban(cell3[0],cell3[1],deleted_number,"y-swing",cells_used, details)
+                        made_deduction |= sudoku.ban(cell3[0],cell3[1],deleted_number,"ywing",cells_used, details)
                     if len(allowed_nums_multicells(cell3)) == 2 and \
                        len(allowed_nums_multicells(cell3,cell1)) == 1 and \
                        len(allowed_nums_multicells(cell3,cell2)) == 1 and \
@@ -317,7 +317,7 @@ def yswing(sudoku):
                         deleted_number = set.intersection(allowed_nums_multicells(cell1,cell2)).pop()
                         cells_used = sudoku.allowed[cell3[0]][cell3[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
                         details = {'main':cell3,'main_allowed':allowed_nums_multicells(cell3),'second1':cell1,'second1_allowed':allowed_nums_multicells(cell1),'second2':cell2,'second2_allowed':allowed_nums_multicells(cell2)}
-                        made_deduction |= sudoku.ban(cell0[0],cell0[1],deleted_number,"y-swing",cells_used, details)
+                        made_deduction |= sudoku.ban(cell0[0],cell0[1],deleted_number,"ywing",cells_used, details)
                 elif cell1[0] == cell2[0] and cell_section(cell1[0],cell1[1]) != cell_section(cell2[0],cell2[1]):
                     # One row, but not in the same sec
                     main_cell = cell1
@@ -332,7 +332,7 @@ def yswing(sudoku):
                             for cell4 in cells_in_same_sec(second_cell,row={global_to_local(cell3[0],cell3[1])[0]}):
                                 if deleted_number in allowed_nums_multicells(cell4):
                                     details = {'main':main_cell,'main_allowed':allowed_nums_multicells(main_cell),'second1':second_cell,'second1_allowed':allowed_nums_multicells(second_cell),'second2':cell3,'second2_allowed':allowed_nums_multicells(cell3)}
-                                    made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"y-swing",cells_used, details)
+                                    made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"ywing",cells_used, details)
 
                 elif cell1[1] == cell2[1] and cell_section(cell1[0],cell1[1]) != cell_section(cell2[0],cell2[1]):
                     # One col, but not in the same sec
@@ -348,7 +348,7 @@ def yswing(sudoku):
                             for cell4 in cells_in_same_sec(second_cell,col={global_to_local(cell3[0],cell3[1])[1]}):
                                 if deleted_number in allowed_nums_multicells(cell4):
                                     details = {'main':main_cell,'main_allowed':allowed_nums_multicells(main_cell),'second1':second_cell,'second1_allowed':allowed_nums_multicells(second_cell),'second2':cell3,'second2_allowed':allowed_nums_multicells(cell3)}
-                                    made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"y-swing",cells_used, details)
+                                    made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"ywing",cells_used, details)
     return made_deduction
 
 def xwing(sudoku):

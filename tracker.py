@@ -87,8 +87,8 @@ class Consequence:
             return f'because of nake_triple: in cell of {self.details["cell1"]}, {self.details["cell2"]} and {self.details["cell3"]} within {self.details["section"]["type"]} {self.details["section"]["idx"]} can be written only the numbers of {self.details["nums"]}. So other numbers cannot go in this cell.'
         elif self.rule == 'hidden_trios':
             return 'because of hidden_triple: numbers of {self.details["nums"]} can be written only in cells of {self.details["cell1"]} and {self.details["cell2"]}. So these numbers cannot go elsewhere in this {self.details["section"]["type"]}.'
-        elif self.rule == 'y-swing':
-            return f'because of y-swing: {self.details["main"]}, {self.details["second1"]}, {self.details["second2"]} can be {self.details["main_allowed"]}, {self.details["second1_allowed"]}, {self.details["second2_allowed"]}, respectively.'
+        elif self.rule == 'ywing':
+            return f'because of ywing: {self.details["main"]}, {self.details["second1"]}, {self.details["second2"]} can be {self.details["main_allowed"]}, {self.details["second1_allowed"]}, {self.details["second2_allowed"]}, respectively.'
         elif self.rule == 'square_row':
             return 'because [this number can only go in this row within a square] this number cannot go elsewhere in this row'
         elif self.rule == 'square_col':

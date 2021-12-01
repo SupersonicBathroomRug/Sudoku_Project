@@ -17,7 +17,7 @@ from consoleapp import ConsoleApp
 from consolestyle import fclr, style
 import boardio
 from boardio import print
-from deduction_rules import hidden_pair, hidden_trios,  nake_pair, naked_trios, only_one_value, only_this_cell, line_square, square_line, yswing, xwing, swordfish
+from deduction_rules import hidden_pair, hidden_trios,  nake_pair, naked_trios, only_one_value, only_this_cell, line_square, square_line, ywing, xwing, swordfish
 from tracker import CantBe, Consequence, Deduction, IsValue, Knowledge, MustBe, ProofStep
 from graph import print_graph
 from util import cell_section, local_to_global, global_to_local, diclen
@@ -246,7 +246,7 @@ class Sudoku:
                 made_deduction |= square_line(self)
                 made_deduction |= line_square(self)
                 made_deduction |= xwing(self)
-                made_deduction |= yswing(self)
+                made_deduction |= ywing(self)
                 made_deduction |= swordfish(self)
             except FillImmediately as f:
                 greedy_deduction = f.deduction

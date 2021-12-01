@@ -43,11 +43,11 @@ def _apply_for_nines(func):
 
     for col in range(9):
         cells_to_check = [(row,col) for row in range(9)]
-        made_deduction |= func(cells_to_check, {"type": "col", "idx": row})
+        made_deduction |= func(cells_to_check, {"type": "col", "idx": col})
 
     for sec in range(9):
         cells_to_check = [local_to_global(sec,i,j) for i,j in product(range(3),range(3))]
-        made_deduction |= func(cells_to_check, {"type": "square", "idx": row})
+        made_deduction |= func(cells_to_check, {"type": "square", "idx": sec})
     return made_deduction
 
 def _ban_numbers(sudoku, cell,numbers,rule, cells_used,details=None):

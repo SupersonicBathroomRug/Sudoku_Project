@@ -17,7 +17,7 @@ from consoleapp import ConsoleApp
 from consolestyle import fclr, style
 import boardio
 from boardio import print
-from deduction_rules import hidden_pair, hidden_trios,  naked_pair, naked_trios, only_one_value, only_this_cell, line_square, square_line, ywing, xwing, swordfish
+from deduction_rules import hidden_pair, hidden_triples,  naked_pair, naked_triples, only_one_value, only_this_cell, line_square, square_line, ywing, xwing, swordfish
 from tracker import CantBe, Consequence, Deduction, IsValue, Knowledge, MustBe, ProofStep
 from graph import print_graph
 from util import cell_section, local_to_global, global_to_local, diclen
@@ -240,9 +240,9 @@ class Sudoku:
                 only_one_value(self)
                 only_this_cell(self)
                 made_deduction |= naked_pair(self)
-                made_deduction |= naked_trios(self)
+                made_deduction |= naked_triples(self)
                 made_deduction |= hidden_pair(self)
-                made_deduction |= hidden_trios(self)
+                made_deduction |= hidden_triples(self)
                 made_deduction |= square_line(self)
                 made_deduction |= line_square(self)
                 made_deduction |= xwing(self)

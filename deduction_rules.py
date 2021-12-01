@@ -39,15 +39,15 @@ def _apply_for_nines(func):
     made_deduction = False
     for row in range(9):
         cells_to_check = [(row,col) for col in range(9)]
-        made_deduction |= func(cells_to_check)
+        made_deduction |= func(cells_to_check, {"type": "row", "idx": row})
 
     for col in range(9):
         cells_to_check = [(row,col) for row in range(9)]
-        made_deduction |= func(cells_to_check)
+        made_deduction |= func(cells_to_check, {"type": "col", "idx": row})
 
     for sec in range(9):
         cells_to_check = [local_to_global(sec,i,j) for i,j in product(range(3),range(3))]
-        made_deduction |= func(cells_to_check)
+        made_deduction |= func(cells_to_check, {"type": "square", "idx": row})
     return made_deduction
 
 def _ban_numbers(sudoku, cell,numbers,rule, cells_used,details=None):
@@ -68,13 +68,13 @@ def _allowed_numbers(sudoku, cells):
 
 
 def nake_pair(sudoku):
-    """RULE: if v and w can be written only to two cells in this row/col/sec, then remove it from the other cells of the row/col/sec."""
+    """RULE: if only the same two numbers can be written in two cells in a row/col/sec, then remove them from the other cells of the row/col/sec."""
     
     def search_for_nake_pairs(elems):
         """Returns a list of 2-tuples, where every tuple contains the indeces of the same input"""
         return [(i,j) for i in range(len(elems)) for j in range(i+1,len(elems)) if len(elems[i])==2 and elems[i]==elems[j]]
     
-    def search_and_ban_in_subset(cells_to_check):
+    def search_and_ban_in_subset(cells_to_check, section):
         """Searches all nake-pairs in a subset of cells and bans these numbers from the other elements of subset."""
         made_deduction = False
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
@@ -86,7 +86,7 @@ def nake_pair(sudoku):
             cells_used = sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
             for cell in cells_to_check:
                 if cell not in (cells_to_check[pair[0]],cells_to_check[pair[1]]):
-                    made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"nake_pair",cells_used)
+                    made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"nake_pair",cells_used, {'cell1':cell1, 'cell2':cell2, 'nums': deleted_numbers, 'section': section})
         return made_deduction
 
     return _apply_for_nines(search_and_ban_in_subset)
@@ -106,7 +106,7 @@ def hidden_pair(sudoku):
         double_pairs = set([pair for pair in two_potential_place.values() if list(two_potential_place.values()).count(pair) == 2])
         return {pair: tuple([k for k,v in two_potential_place.items() if v==pair]) for pair in double_pairs}
 
-    def search_and_ban_in_subset(cells_to_check):
+    def search_and_ban_in_subset(cells_to_check, section):
         made_deduction = False
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
         pairs = search_hidden_pairs(allowed_numbers)
@@ -118,8 +118,8 @@ def hidden_pair(sudoku):
             for cell in cells_to_check:
                 if cell not in (cell0, cell1):
                     cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in used_nums if n in _allowed_numbers(sudoku,[cell])]
-            made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[pair[0]]), "hidden_pair",cells_used)
-            made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[pair[1]]), "hidden_pair",cells_used)
+            made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[pair[0]]), "hidden_pair",cells_used, {'cell1': cell0, 'cell2': cell1,'nums':except_nums,'section': section})
+            made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[pair[1]]), "hidden_pair",cells_used, {'cell1': cell0, 'cell2': cell1,'nums':except_nums,'section': section})
 
         return made_deduction
 
@@ -209,7 +209,7 @@ def naked_trios(sudoku):
                     break
         return l
     
-    def search_and_ban_in_subset(cells_to_check):
+    def search_and_ban_in_subset(cells_to_check, section):
         """Searches all naked-trios in a subset of cells and bans these numbers from the other elements of subset."""
         made_deduction = False
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
@@ -222,7 +222,7 @@ def naked_trios(sudoku):
             cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
             for cell in cells_to_check:
                 if cell not in (cell0, cell1, cell2):
-                    made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"naked-trios",cells_used)
+                    made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"naked-trios",cells_used, {'cell1':cell1, 'cell2':cell2, 'nums': deleted_numbers, 'section': section})
         return made_deduction
 
     return _apply_for_nines(search_and_ban_in_subset)
@@ -243,7 +243,7 @@ def hidden_trios(sudoku):
                 res[nums_can_go] = nums
         return res
 
-    def search_and_ban_in_subset(cells_to_check):
+    def search_and_ban_in_subset(cells_to_check, section):
         made_deduction = False
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
         trios = search_hidden_trios(allowed_numbers)
@@ -291,7 +291,7 @@ def yswing(sudoku):
         return res
 
     made_deduction = False
-    for cell1 in product(range(9),range(9)): # left-down
+    for cell1 in product(range(9),range(9)):
         for cell2 in product(range(9),range(9)):
             if len(allowed_nums_multicells(cell1)) == 2 and len(allowed_nums_multicells(cell2)) == 2 and \
                len(allowed_nums_multicells(cell1,cell2)) == 1 and \
@@ -300,20 +300,24 @@ def yswing(sudoku):
                     # It is a rectangle
                     cell0 = (cell1[0], cell2[1])
                     cell3 = (cell2[0], cell1[1])
-                    if len(allowed_nums_multicells(cell0,cell1)) == 1 and \
+                    if len(allowed_nums_multicells(cell0)) == 2 and \
+                       len(allowed_nums_multicells(cell0,cell1)) == 1 and \
                        len(allowed_nums_multicells(cell0,cell2)) == 1 and \
                        len(allowed_nums_multicells(cell0,cell1,cell2)) == 0:
                         # Good rectangle.
                         deleted_number = set.intersection(allowed_nums_multicells(cell1,cell2)).pop()
                         cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
-                        made_deduction |= sudoku.ban(cell3[0],cell3[1],deleted_number,"y-swing",cells_used)
-                    if len(allowed_nums_multicells(cell3,cell1)) == 1 and \
+                        details = {'main':cell0,'main_allowed':allowed_nums_multicells(cell3),'second1':cell1,'second1_allowed':allowed_nums_multicells(cell1),'second2':cell2,'second2_allowed':allowed_nums_multicells(cell2)}
+                        made_deduction |= sudoku.ban(cell3[0],cell3[1],deleted_number,"y-swing",cells_used, details)
+                    if len(allowed_nums_multicells(cell3)) == 2 and \
+                       len(allowed_nums_multicells(cell3,cell1)) == 1 and \
                        len(allowed_nums_multicells(cell3,cell2)) == 1 and \
                        len(allowed_nums_multicells(cell3,cell1,cell2)) == 0:
                         # Good rectangle.
                         deleted_number = set.intersection(allowed_nums_multicells(cell1,cell2)).pop()
                         cells_used = sudoku.allowed[cell3[0]][cell3[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
-                        made_deduction |= sudoku.ban(cell0[0],cell0[1],deleted_number,"y-swing",cells_used)
+                        details = {'main':cell3,'main_allowed':allowed_nums_multicells(cell3),'second1':cell1,'second1_allowed':allowed_nums_multicells(cell1),'second2':cell2,'second2_allowed':allowed_nums_multicells(cell2)}
+                        made_deduction |= sudoku.ban(cell0[0],cell0[1],deleted_number,"y-swing",cells_used, details)
                 elif cell1[0] == cell2[0] and cell_section(cell1[0],cell1[1]) != cell_section(cell2[0],cell2[1]):
                     # One row, but not in the same sec
                     main_cell = cell1
@@ -327,7 +331,9 @@ def yswing(sudoku):
                             cells_used = sudoku.allowed[main_cell[0]][main_cell[1]].notNones() + sudoku.allowed[second_cell[0]][second_cell[1]].notNones() + sudoku.allowed[cell3[0]][cell3[1]].notNones()
                             for cell4 in cells_in_same_sec(second_cell,row={global_to_local(cell3[0],cell3[1])[0]}):
                                 if deleted_number in allowed_nums_multicells(cell4):
-                                    made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"y-swing",cells_used)
+                                    details = {'main':main_cell,'main_allowed':allowed_nums_multicells(main_cell),'second1':second_cell,'second1_allowed':allowed_nums_multicells(second_cell),'second2':cell3,'second2_allowed':allowed_nums_multicells(cell3)}
+                                    made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"y-swing",cells_used, details)
+
                 elif cell1[1] == cell2[1] and cell_section(cell1[0],cell1[1]) != cell_section(cell2[0],cell2[1]):
                     # One col, but not in the same sec
                     main_cell = cell1
@@ -341,8 +347,8 @@ def yswing(sudoku):
                             cells_used = sudoku.allowed[main_cell[0]][main_cell[1]].notNones() + sudoku.allowed[second_cell[0]][second_cell[1]].notNones() + sudoku.allowed[cell3[0]][cell3[1]].notNones()
                             for cell4 in cells_in_same_sec(second_cell,col={global_to_local(cell3[0],cell3[1])[1]}):
                                 if deleted_number in allowed_nums_multicells(cell4):
-                                    made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"y-swing",cells_used)
-                        made_deduction|=sudoku.ban(r,c,val+1,"line_square",reason,details={'rc':'col', 'line':col, 'sec': sec})
+                                    details = {'main':main_cell,'main_allowed':allowed_nums_multicells(main_cell),'second1':second_cell,'second1_allowed':allowed_nums_multicells(second_cell),'second2':cell3,'second2_allowed':allowed_nums_multicells(cell3)}
+                                    made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"y-swing",cells_used, details)
     return made_deduction
 
 def xwing(sudoku):

@@ -128,6 +128,7 @@ def square_line(sudoku):
     for sec in range(9):
         for val in range(9):
             places=sudoku.secpos[sec][val].allowed()
+            if len(places): continue #avoid redundant ban (can write val to this pos because of only_this_cell)
             #for row
             if len(set((i for i,j in places)))==1:
                 row,_=local_to_global(sec,*places[0])
@@ -150,6 +151,7 @@ def line_square(sudoku):
     for row in range(9):
         for val in range(9):
             places=sudoku.rowpos[row][val].allowed()
+            if len(places)==1: continue #avoid redundant ban (can write val to this pos because of only_this_cell)
             if len(set(i//3 for i in places))==1:
                 sec=cell_section(row,places[0])
                 reason=[info for key, info in sudoku.rowpos[row][val].items() if key // 3 != places[0] // 3 and info is not None]
@@ -160,6 +162,7 @@ def line_square(sudoku):
     for col in range(9):
         for val in range(9):
             places=sudoku.colpos[col][val].allowed()
+            if len(places) == 1: continue  # avoid redundant ban (can write val to this pos because of only_this_cell)
             if len(set(i//3 for i in places))==1:
                 sec=cell_section(places[0],col)
                 reason=[info for key, info in sudoku.rowpos[col][val].items() if key // 3 != places[0] // 3 and info is not None]

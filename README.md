@@ -98,6 +98,8 @@ Ezek az osztályok felelnek továbbá a bizonyítások szép kiírathatóságá�
 - Egy négyzetben egy adott szám csak egy sorba/oszlopba mehet már: ekkor a sor/oszlop többi mezőjére nem kerülhet ez a szám
 - Egy sorban/oszlopban már csak egy adott négyzeten belülre mehet egy szám: ekkor a négyzeten belül máshova nem mehet ez a szám
 - Egy téglalap három sarkába rendre csak az AC, AB, BC számok vannak: ekkor a téglalap negyedik sarkába nem kerülhet C. (Ez igaz 4 tagú körökre is, nem csak téglalapokra)
+- Két sorban/oszlopban csak 2 helyre kerülhet egy szám és ez a négy mező téglalapot alkot: ekkor a téglalap oszlopaiban/soraiban máshova nem mehet ez a szám
+- Három sorban/oszlopban legfeljebb 3 helyre kerülhet egy szám és ezek legfeljebb 3 oszlopot/sort határoznak meg összesen: ekkor ezekben a oszlopok/sorokban máshova nem mehet ez a szám
 
 ## Néhány főbb osztály leírása
 #### `Sudoku` - `sudoku.py`

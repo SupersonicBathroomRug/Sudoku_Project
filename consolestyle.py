@@ -1,3 +1,5 @@
+import colorama
+colorama.init()
 class style:
     '''Collection of characters that change the style of the text when printed to the console. 
     `UN` means clear that type of formatting. `ENDC` clears all formatting.'''
@@ -79,3 +81,6 @@ class bclr:
     def rgb(r, g, b):
         '''Specify a background color by RGB (0-255) values.'''
         return '\033[48;2;'+f'{r};{g};{b}m'
+
+if __name__ == "__main__":
+    print("asd",fclr.GREEN, "qwe")

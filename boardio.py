@@ -11,6 +11,7 @@ import sys
 import builtins
 
 from Getch import getch
+from consolestyle import bclr
 
 headers = {'User-Agent' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36'}
 
@@ -98,7 +99,7 @@ Quit with 'q', get this help with 'h'.''')
 def fetch_puzzle(url):
     '''Downloads a puzzle from a given `url`, and converts it into a `list` of `list`s. Currently only supports 
     puzzles on http://nine.websudoku.com/.'''
-    if url.startswith('https://nine.websudoku.com/'):
+    if re.match(r'https?://(?:nine|www)\.websudoku\.com/', url) is not None:
         results = requests.get(url, headers=headers)
         soup = bs4.BeautifulSoup(results.text, features='lxml')
         buttons = [row.select('input') for row in soup.select('table[id="puzzle_grid"] tr')]
@@ -125,7 +126,7 @@ def print_board(board, selected=(9,9)):
         print("│")
     print("└─────────┴─────────┴─────────┘")
 
-def print_detailed_board(board, possibles):
+def print_detailed_board(board, possibles, selected=(9,9)):
     '''Print a detailed version of an ongoing solve. Only printing happens here.'''
     print("╔═════════╤═════════╤═════════╦═════════╤═════════╤═════════╦═════════╤═════════╤═════════╗")
     for i in range(9):
@@ -141,13 +142,13 @@ def print_detailed_board(board, possibles):
                     print("│",end="")
                 if board[i][j] == 0:
                     tp = [' ' if 3*r+k+1 not in possibles[i][j] else 3*r+k+1 for k in range(3)]
-                    print(f" {tp[0]}  {tp[1]}  {tp[2]} ",end="")
+                    print((bclr.RED if selected==(i,j) else "") +f" {tp[0]}  {tp[1]}  {tp[2]} {bclr.ENDC}",end="")
                 elif r == 0:
-                    print("  ┏━━━┓  ",end="")
+                    print((bclr.RED if selected==(i,j) else "")+f"  ┏━━━┓  {bclr.ENDC}",end="")
                 elif r == 1:
-                    print(f"  ┃ {board[i][j]} ┃  ",end="")
+                    print((bclr.RED if selected==(i,j) else "")+f"  ┃ {board[i][j]} ┃  {bclr.ENDC}",end="")
                 else:
-                    print("  ┗━━━┛  ",end="")
+                    print((bclr.RED if selected==(i,j) else "")+f"  ┗━━━┛  {bclr.ENDC}",end="")
             print("║")
     print("╚═════════╧═════════╧═════════╩═════════╧═════════╧═════════╩═════════╧═════════╧═════════╝")
 

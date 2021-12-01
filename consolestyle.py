@@ -1,4 +1,4 @@
-import colorama
+import colorama # type: ignore
 colorama.init()
 class style:
     '''Collection of characters that change the style of the text when printed to the console. 

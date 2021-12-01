@@ -135,7 +135,6 @@ class Sudoku:
             self.colpos[col][val-1][i] = im_filled
             self.secpos[cell_section(row,col)][val-1][(i//3,i%3)] = im_filled
         # no more values can be written this position...
-        # TODO: this is useless, as these values won't be accessed again
         for i in range(1, 10):
            self.allowed[row][col][i] = im_filled
         for i in range(9): # ...in this 3×3 section
@@ -267,6 +266,8 @@ class Sudoku:
         # FILL THE SELECTED CELL
         self[proofstep.position] = proofstep.value
         self.fill_time += time.time() - timestamp
+        if self.missing == 0:
+            return True
         return None
 
     def solve(self): # TODO: shortcut in case of k_opt==False?

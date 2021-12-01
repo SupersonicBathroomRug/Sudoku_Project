@@ -141,6 +141,8 @@ class ProofStep:
     >   The steps of the proof in order.
     `proof_order`: `dict(Knowledge/Deduction -> idx)`\\
     >   Inverse of `proof`.
+    `chosen_reasons`: `dict(Deduction -> Consequence)`\\
+    >   Which `Consequence` has been chosen as the one proving this `Deduction`?
     `k_opt`: `bool`\\
     >   Was this proofstep optimized to use the smallest `k` possible?
     `approximation`: `bool`\\
@@ -199,6 +201,7 @@ class ProofStep:
                 print('ERROR: IP solver failed.')
                 k_opt = False
         if not k_opt: # k_opt == False, or k-optimization failed miserably
+            print("k-opt failed")
             self.approximation = True
             chosen_deduction = next(iter(deductions)) if greedy_deduction is None else greedy_deduction
             # REMOVE CYCLES AND REDUNDANCY
@@ -232,6 +235,7 @@ class ProofStep:
         for cons in step.consequence_of: # iterate over all possible reasonings...
             for info in cons.of: # if all predicates can be peacefully resolved:
                 if not self._make_acyclic(info, stack, allowed_paths):
+                    print("Not acyclic.")
                     self.approximation = True
                     break
             else:

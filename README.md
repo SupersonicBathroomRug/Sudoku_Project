@@ -145,6 +145,9 @@ Ad egy `getch` függvényt, amivel a C-hez hasonlóan be lehet olvasni egy (1) k
 
 #### `consoleapp.py`
 Alapvetően azt oldja meg, hogy az interaktív megoldónak tudjunk olyan parancsokat adni, hogy `ban 1,4 2,5: 3, 9`, `set 1 3 2`, `help`, `print --small` vagy `proof --reference 4:5`, ám ezt a funkcionalitást a konkrét feladattól függetlenül, általánosan oldja meg.
+
+#### `consolestyle.py`
+A benne található "enum"-ok elemeinek `print`-elésével színes/formázott szöveget lehet nyomtatni a konzolra. A ténylegesen működőképes formázások terminálonként eltérnek (Windows igen limitált, VSCode elég menő).
  
 Ad tehát egy `ConsoleApp` osztályt, amivel könnyen lehet a fenti jellegű parancsokat parsolni, és kinyerni belőle a paramétereket valamilyen standard formátumban. Nagyrészt regexekre épül.
 

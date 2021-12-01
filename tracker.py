@@ -79,12 +79,12 @@ class Consequence:
             return 'because this number can only go here in its col'
         elif self.rule == 'secpos':
             return 'because this number can only go here in its square'
-        elif self.rule == 'nake_pair':
+        elif self.rule == 'naked_pair':
             return f'because of naked_pair: in cell of {self.details["cell1"]} and {self.details["cell2"]} within {self.details["section"]["type"]} {self.details["section"]["idx"]} can be written only the numbers of {self.details["nums"]}'
         elif self.rule == 'hidden_pair':
             return f'because of hidden_pair: numbers of {self.details["nums"]} can be written only in cells of {self.details["cell1"]} and {self.details["cell2"]}. So these numbers cannot go elsewhere in this {self.details["section"]["type"]}.'
         elif self.rule == 'naked_trios':
-            return f'because of nake_triple: in cell of {self.details["cell1"]}, {self.details["cell2"]} and {self.details["cell3"]} within {self.details["section"]["type"]} {self.details["section"]["idx"]} can be written only the numbers of {self.details["nums"]}. So other numbers cannot go in this cell.'
+            return f'because of naked_triple: in cell of {self.details["cell1"]}, {self.details["cell2"]} and {self.details["cell3"]} within {self.details["section"]["type"]} {self.details["section"]["idx"]} can be written only the numbers of {self.details["nums"]}. So other numbers cannot go in this cell.'
         elif self.rule == 'hidden_trios':
             return 'because of hidden_triple: numbers of {self.details["nums"]} can be written only in cells of {self.details["cell1"]} and {self.details["cell2"]}. So these numbers cannot go elsewhere in this {self.details["section"]["type"]}.'
         elif self.rule == 'ywing':

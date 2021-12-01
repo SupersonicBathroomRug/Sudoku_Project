@@ -67,10 +67,10 @@ def _allowed_numbers(sudoku, cells):
     return allowed_numbers
 
 
-def nake_pair(sudoku):
+def naked_pair(sudoku):
     """RULE: if only the same two numbers can be written in two cells in a row/col/sec, then remove them from the other cells of the row/col/sec."""
     
-    def search_for_nake_pairs(elems):
+    def search_for_naked_pairs(elems):
         """Returns a list of 2-tuples, where every tuple contains the indeces of the same input"""
         return [(i,j) for i in range(len(elems)) for j in range(i+1,len(elems)) if len(elems[i])==2 and elems[i]==elems[j]]
     
@@ -78,15 +78,15 @@ def nake_pair(sudoku):
         """Searches all nake-pairs in a subset of cells and bans these numbers from the other elements of subset."""
         made_deduction = False
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
-        nake_pairs = search_for_nake_pairs(allowed_numbers)
-        for pair in nake_pairs:
+        naked_pairs = search_for_naked_pairs(allowed_numbers)
+        for pair in naked_pairs:
             cell1 = cells_to_check[pair[0]]
             cell2 = cells_to_check[pair[1]]
             deleted_numbers = sudoku.allowed[cell1[0]][cell1[1]].allowed()
             cells_used = sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
             for cell in cells_to_check:
                 if cell not in (cells_to_check[pair[0]],cells_to_check[pair[1]]):
-                    made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"nake_pair",cells_used, {'cell1':cell1, 'cell2':cell2, 'nums': deleted_numbers, 'section': section})
+                    made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"naked_pair",cells_used, {'cell1':cell1, 'cell2':cell2, 'nums': deleted_numbers, 'section': section})
         return made_deduction
 
     return _apply_for_nines(search_and_ban_in_subset)

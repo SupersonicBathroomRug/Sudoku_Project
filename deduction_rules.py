@@ -117,7 +117,7 @@ def hidden_pair(sudoku):
             cells_used = []
             for cell in cells_to_check:
                 if cell not in (cell0, cell1):
-                    cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in used_nums if n in _allowed_numbers(sudoku,[cell])[0]]
+                    cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in used_nums]
             made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[pair[0]]), "hidden_pair",cells_used, {'cell1': cell0, 'cell2': cell1,'nums':except_nums,'section': section})
             made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[pair[1]]), "hidden_pair",cells_used, {'cell1': cell0, 'cell2': cell1,'nums':except_nums,'section': section})
 
@@ -213,8 +213,7 @@ def hidden_triples(sudoku):
             cells_used = []
             for cell in cells_to_check:
                 if cell not in (cell0, cell1, cell2):
-                    cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in used_nums if
-                                   n in _allowed_numbers(sudoku, [cell])[0]]
+                    cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in used_nums]
             details = {'cell1': cell0, 'cell2': cell1, 'cell3': cell2,'nums':except_nums,'section': section}
             made_deduction |= _ban_numbers(sudoku, cell0,
                                            filter(lambda x: x not in except_nums, allowed_numbers[triple[0]]),

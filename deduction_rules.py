@@ -248,7 +248,7 @@ def square_line(sudoku):
                 reason = [info for key, info in sudoku.secpos[sec][val].items() if key[1] != col and info is not None]
                 for row in range(9):
                     if row//3!=sec//3:
-                        made_deduction|=sudoku.ban(row,col,val+1,"square_line",reason,details={'rc':'col', 'line':row, 'sec': sec})
+                        made_deduction|=sudoku.ban(row,col,val+1,"square_line",reason,details={'rc':'col', 'line':col, 'sec': sec})
     return made_deduction
 
 def line_square(sudoku):
@@ -273,7 +273,7 @@ def line_square(sudoku):
                 for i,j in product(range(3),range(3)):
                     r,c=local_to_global(sec,i,j)
                     if c!=col:
-                        made_deduction|=sudoku.ban(r,c,val+1,"col_square",reason)
+                        made_deduction|=sudoku.ban(r,c,val+1,"col_square",reason,details={'rc':'col', 'line':col, 'sec':sec})
     return made_deduction
 
 def ywing(sudoku):

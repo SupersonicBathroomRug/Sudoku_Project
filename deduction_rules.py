@@ -215,15 +215,16 @@ def hidden_triples(sudoku):
                 if cell not in (cell0, cell1, cell2):
                     cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in used_nums if
                                    n in _allowed_numbers(sudoku, [cell])]
+            details = {'cell1': cell0, 'cell2': cell1, 'cell3': cell2,'nums':except_nums,'section': section}
             made_deduction |= _ban_numbers(sudoku, cell0,
                                            filter(lambda x: x not in except_nums, allowed_numbers[triple[0]]),
-                                           "hidden_triple", cells_used) #ADD DETAILS HERE
+                                           "hidden_triple", cells_used, details)
             made_deduction |= _ban_numbers(sudoku, cell1,
                                            filter(lambda x: x not in except_nums, allowed_numbers[triple[1]]),
-                                           "hidden_triple", cells_used) #ADD DETAILS HERE
+                                           "hidden_triple", cells_used, details)
             made_deduction |= _ban_numbers(sudoku, cell2,
                                            filter(lambda x: x not in except_nums, allowed_numbers[triple[2]]),
-                                           "hidden_triple", cells_used) #ADD DETAILS HERE
+                                           "hidden_triple", cells_used, details)
         return made_deduction
 
     return _apply_for_nines(search_and_ban_in_subset)

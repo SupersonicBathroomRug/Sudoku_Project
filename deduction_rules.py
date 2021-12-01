@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 from itertools import combinations, permutations, product
-=======
-import itertools
-from itertools import product
->>>>>>> master
 from tracker import MustBe
 from util import cell_section, global_to_local, local_to_global
 
@@ -174,7 +169,6 @@ def line_square(sudoku):
                 for i,j in product(range(3),range(3)):
                     r,c=local_to_global(sec,i,j)
                     if c!=col:
-<<<<<<< HEAD
                         made_deduction|=sudoku.ban(r,c,val+1,"col_square",reason)
     return made_deduction
 
@@ -348,7 +342,6 @@ def yswing(sudoku):
                             for cell4 in cells_in_same_sec(second_cell,col={global_to_local(cell3[0],cell3[1])[1]}):
                                 if deleted_number in allowed_nums_multicells(cell4):
                                     made_deduction != sudoku.ban(cell4[0],cell4[1],deleted_number,"y-swing",cells_used)
-=======
                         made_deduction|=sudoku.ban(r,c,val+1,"line_square",reason,details={'rc':'col', 'line':col, 'sec': sec})
     return made_deduction
 
@@ -358,7 +351,7 @@ def xwing(sudoku):
     for val in range(9):
         #rows with 2
         possible={i:sudoku.rowpos[i][val].allowed() for i in range(9) if len(sudoku.rowpos[i][val])==2}
-        for i,j in itertools.combinations(possible.keys(),2):
+        for i,j in combinations(possible.keys(),2):
             if possible[i]==possible[j]:
                 reason = sudoku.rowpos[i][val].notNones() + sudoku.rowpos[j][val].notNones()
                 for r in range(9):
@@ -367,7 +360,7 @@ def xwing(sudoku):
                             made_deduction|=sudoku.ban(r,c,val+1,"xwing",reason,details={'rc':'rows', 'lines':[i,j]})
         #cols with 2
         possible={i:sudoku.colpos[i][val].allowed() for i in range(9) if len(sudoku.colpos[i][val])==2}
-        for i,j in itertools.combinations(possible.keys(),2):
+        for i,j in combinations(possible.keys(),2):
             if possible[i]==possible[j]:
                 reason=sudoku.colpos[i][val].notNones()+sudoku.colpos[j][val].notNones()
                 for c in range(9):
@@ -383,7 +376,7 @@ def swordfish(sudoku):
     #rows
     for val in range(9):
         possible = {i: sudoku.rowpos[i][val].allowed() for i in range(9) if len(sudoku.rowpos[i][val]) in [2,3]}
-        for i,j,k in itertools.combinations(possible.keys(),3):
+        for i,j,k in combinations(possible.keys(),3):
             cols=list(set().union(possible[i],possible[j],possible[k]))
             if len(cols)==3:
                 reason = stripped_dict(sudoku.rowpos[i][val],cols) + stripped_dict(sudoku.rowpos[j][val],cols) + stripped_dict(sudoku.rowpos[k][val],cols)
@@ -394,7 +387,7 @@ def swordfish(sudoku):
     #cols
     for val in range(9):
         possible = {i: sudoku.colpos[i][val].allowed() for i in range(9) if len(sudoku.colpos[i][val]) in [2,3]}
-        for i,j,k in itertools.combinations(possible.keys(),3):
+        for i,j,k in combinations(possible.keys(),3):
             rows=list(set().union(possible[i],possible[j],possible[k]))
             if len(rows)==3:
                 reason = stripped_dict(sudoku.colpos[i][val],rows) + stripped_dict(sudoku.colpos[j][val],rows) + stripped_dict(sudoku.colpos[k][val],rows)
@@ -402,5 +395,4 @@ def swordfish(sudoku):
                     for r in rows:
                         if c not in [i,j,k]:
                             made_deduction |= sudoku.ban(r, c, val + 1, "swordfish", reason,details={'rc':'cols', 'lines':[i,j,k]})
->>>>>>> master
     return made_deduction

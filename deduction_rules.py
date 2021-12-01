@@ -114,8 +114,6 @@ def hidden_pair(sudoku):
             cell0 = cells_to_check[pair[0]]
             cell1 = cells_to_check[pair[1]]
             cells_used = []
-            if cell0 == (8,1) and cell1 == (8,6):
-                print("asd")
             for cell in cells_to_check:
                 if cell not in (cell0, cell1):
                     cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in except_nums]

@@ -127,7 +127,7 @@ def hidden_pair(sudoku):
 
 
 def naked_triples(sudoku):
-    """RULE: If three cells in the same territory(row/col/sec), can only have elements of a 3 size set then ban these numbers from other cells in this territory."""
+    """RULE: If three cells in the same territory(row/col/sec) can only have elements of a 3 size set, then ban these numbers from other cells in this territory."""
 
     def search_for_naked_triples(elems):
         """

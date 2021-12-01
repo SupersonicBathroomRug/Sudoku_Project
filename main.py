@@ -89,6 +89,20 @@ def example3():
         [2, 0, 3, 0, 0, 0, 1, 0, 0]])
     sud.interactive_solve()
 
+# >>> EXAMPLE TO COPY
+# TODO
+def example_to_copy():
+    sud = Sudoku(board=[
+        [0, 0, 0, 0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0, 0, 0, 0], 
+        [0, 0, 0, 0, 0, 0, 0, 0, 0]])
+
 def xwingtest():
     sud=Sudoku(board=
         [[1,0,0,0,0,0,5,6,9],
@@ -113,6 +127,48 @@ def swordfishtest():
          [3,0,0,0,6,9,4,2,0],
          [2,0,0,8,3,0,6,0,0],
          [9,6,0,7,4,2,3,0,5]])
+    sud.interactive_solve()
+
+# This is an example where you can use ywing
+def ywingtest1():
+    sud = Sudoku(board=[
+        [9, 0, 0, 2, 4, 0, 0, 0, 0],
+        [0, 5, 0, 6, 9, 0, 2, 3, 1],
+        [0, 2, 0, 0, 5, 0, 0, 9, 0],
+        [0, 9, 0, 7, 0, 0, 3, 2, 0],
+        [0, 0, 2, 9, 3, 5, 6, 0, 7],
+        [0, 7, 0, 0, 0, 2, 9, 0, 0],
+        [0, 6, 9, 0, 2, 0, 0, 7, 3],
+        [5, 1, 0, 0, 7, 9, 0, 6, 2],
+        [2, 0, 7, 0, 8, 6, 0, 0, 9]])
+    sud.interactive_solve()
+
+# This is an example where you can use ywing
+def ywingtest2():
+    sud = Sudoku(board=[
+        [9, 0, 0, 2, 4, 0, 0, 0, 0],
+        [0, 5, 0, 6, 9, 0, 2, 3, 1],
+        [0, 2, 0, 0, 5, 0, 0, 9, 0],
+        [0, 9, 0, 7, 0, 0, 3, 2, 0],
+        [0, 0, 2, 9, 3, 5, 6, 0, 7],
+        [0, 7, 0, 0, 0, 2, 9, 0, 0],
+        [8, 6, 9, 0, 2, 1, 0, 7, 3],
+        [5, 1, 0, 0, 7, 9, 0, 6, 2],
+        [2, 0, 7, 0, 9, 6, 0, 0, 9]])
+    sud.interactive_solve()
+
+# This is an example where you can use hidden_triples
+def hiddentriplestest():
+    sud = Sudoku(board=[
+        [0, 0, 0, 0, 0, 1, 0, 3, 0],
+        [2, 3, 1, 0, 9, 0, 0, 0, 0],
+        [0, 6, 5, 0, 0, 3, 1, 0, 0],
+        [6, 7, 8, 9, 2, 4, 3, 0, 0],
+        [1, 0, 3, 0, 5, 0, 0, 0, 6],
+        [0, 0, 0, 1, 3, 6, 7, 0, 0],
+        [0, 0, 9, 3, 6, 0, 5, 7, 0],
+        [0, 0, 6, 0, 1, 9, 8, 4, 3],
+        [3, 0, 0, 0, 0, 0, 0, 0, 0]])
     sud.interactive_solve()
 
 def fetchsolve(url="https://nine.websudoku.com/?level=4&set_id=6169806040"):

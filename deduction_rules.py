@@ -1,7 +1,6 @@
-import itertools
-from itertools import product
+from itertools import combinations, permutations, product
 from tracker import MustBe
-from util import cell_section, local_to_global
+from util import cell_section, global_to_local, local_to_global
 
 
 def only_one_value(sudoku):
@@ -40,15 +39,15 @@ def _apply_for_nines(func):
     made_deduction = False
     for row in range(9):
         cells_to_check = [(row,col) for col in range(9)]
-        made_deduction |= func(cells_to_check)
+        made_deduction |= func(cells_to_check, {"type": "row", "idx": row})
 
     for col in range(9):
         cells_to_check = [(row,col) for row in range(9)]
-        made_deduction |= func(cells_to_check)
+        made_deduction |= func(cells_to_check, {"type": "col", "idx": col})
 
     for sec in range(9):
         cells_to_check = [local_to_global(sec,i,j) for i,j in product(range(3),range(3))]
-        made_deduction |= func(cells_to_check)
+        made_deduction |= func(cells_to_check, {"type": "square", "idx": sec})
     return made_deduction
 
 def _ban_numbers(sudoku, cell,numbers,rule, cells_used,details=None):
@@ -58,7 +57,7 @@ def _ban_numbers(sudoku, cell,numbers,rule, cells_used,details=None):
     return made_deduction
 
 def _allowed_numbers(sudoku, cells):
-    """Returns a list where i-th element contains the allowed numbers in cells[i]"""
+    """Returns a list of tuples, where i-th element in the list contains the allowed numbers in cells[i]"""
     allowed_numbers = []
     for cell in cells:
         if sudoku.board[cell[0]][cell[1]] != 0:
@@ -68,32 +67,32 @@ def _allowed_numbers(sudoku, cells):
     return allowed_numbers
 
 
-def nake_pair(sudoku):
-    """RULE: if v and w can be written only to two cells in this row/col/sec, then remove it from the other cells of the row/col/sec."""
+def naked_pair(sudoku):
+    """RULE: If two cells in the same territory(row/col/sec), can only have the elements of the same 2 size set then ban these numbers from other cells in this territory."""
     
-    def search_for_nake_pairs(elems):
+    def search_for_naked_pairs(elems):
         """Returns a list of 2-tuples, where every tuple contains the indeces of the same input"""
         return [(i,j) for i in range(len(elems)) for j in range(i+1,len(elems)) if len(elems[i])==2 and elems[i]==elems[j]]
     
-    def search_and_ban_in_subset(cells_to_check):
+    def search_and_ban_in_subset(cells_to_check, section):
         """Searches all nake-pairs in a subset of cells and bans these numbers from the other elements of subset."""
         made_deduction = False
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
-        nake_pairs = search_for_nake_pairs(allowed_numbers)
-        for pair in nake_pairs:
+        naked_pairs = search_for_naked_pairs(allowed_numbers)
+        for pair in naked_pairs:
             cell1 = cells_to_check[pair[0]]
             cell2 = cells_to_check[pair[1]]
             deleted_numbers = sudoku.allowed[cell1[0]][cell1[1]].allowed()
             cells_used = sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
             for cell in cells_to_check:
                 if cell not in (cells_to_check[pair[0]],cells_to_check[pair[1]]):
-                    made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"nake_pair",cells_used)
+                    made_deduction |= _ban_numbers(sudoku,cell,deleted_numbers,"naked_pair",cells_used, {'cell1':cell1, 'cell2':cell2, 'nums': deleted_numbers, 'section': section})
         return made_deduction
 
     return _apply_for_nines(search_and_ban_in_subset)
 
 def hidden_pair(sudoku):
-    """RULE: if only v and w has number x and y then delete every number from v and w except x and y."""
+    """RULE: If two numbers can only go in up to 2 cells within a territory(row/col/sec), ban other numbers from these cells."""
     def search_hidden_pairs(elems):
         where_can_go = {i:[] for i in range(1,10)} # i-th number in which indices of elems can go
         for idx,elem in enumerate(elems):
@@ -107,17 +106,124 @@ def hidden_pair(sudoku):
         double_pairs = set([pair for pair in two_potential_place.values() if list(two_potential_place.values()).count(pair) == 2])
         return {pair: tuple([k for k,v in two_potential_place.items() if v==pair]) for pair in double_pairs}
 
-    def search_and_ban_in_subset(cells_to_check):
+    def search_and_ban_in_subset(cells_to_check, section):
         made_deduction = False
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
         pairs = search_hidden_pairs(allowed_numbers)
         for pair,except_nums in pairs.items():
-            current_hidden_cell0 = cells_to_check[pair[0]]
-            current_hidden_cell1 = cells_to_check[pair[1]]
-            cells_used = sudoku.allowed[current_hidden_cell0[0]][current_hidden_cell0[1]].notNones()+sudoku.allowed[current_hidden_cell1[0]][current_hidden_cell1[1]].notNones()
-            made_deduction |= _ban_numbers(sudoku, current_hidden_cell0, filter(lambda x: x not in except_nums, allowed_numbers[pair[0]]), "hidden_pair",cells_used)
-            made_deduction |= _ban_numbers(sudoku, current_hidden_cell1, filter(lambda x: x not in except_nums, allowed_numbers[pair[1]]), "hidden_pair",cells_used)
+            cell0 = cells_to_check[pair[0]]
+            cell1 = cells_to_check[pair[1]]
+            cells_used = []
+            if cell0 == (8,1) and cell1 == (8,6):
+                print("asd")
+            for cell in cells_to_check:
+                if cell not in (cell0, cell1):
+                    cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in except_nums]
+            made_deduction |= _ban_numbers(sudoku, cell0, filter(lambda x: x not in except_nums, allowed_numbers[pair[0]]), "hidden_pair",cells_used, {'cell1': cell0, 'cell2': cell1,'nums':except_nums,'section': section})
+            made_deduction |= _ban_numbers(sudoku, cell1, filter(lambda x: x not in except_nums, allowed_numbers[pair[1]]), "hidden_pair",cells_used, {'cell1': cell0, 'cell2': cell1,'nums':except_nums,'section': section})
 
+        return made_deduction
+
+    return _apply_for_nines(search_and_ban_in_subset)
+
+
+def naked_triples(sudoku):
+    """RULE: If three cells in the same territory(row/col/sec) can only have elements of a 3 size set, then ban these numbers from other cells in this territory."""
+
+    def search_for_naked_triples(elems):
+        """
+        The combinations of candidates for a Naked Triple will be one of the following:
+        (123) (123) (123) - {3/3/3} (in terms of candidates per cell)
+        (123) (123) (12) - {3/3/2} (or some combination thereof)
+        (123) (12) (23) - {3/2/2}
+        (12) (23) (13) - {2/2/2}
+        """
+        l = []
+        for comb in combinations(range(9), 3):
+            cell0 = set(elems[comb[0]])
+            cell1 = set(elems[comb[1]])
+            cell2 = set(elems[comb[2]])
+            for cell0, cell1, cell2 in permutations((cell0, cell1, cell2)):
+                if len(cell0) == 3 and cell0 == cell1 and cell1 == cell2:
+                    l.append(tuple(sorted((comb[0], comb[1], comb[2]))))
+                    break
+                elif len(cell0) == 3 and cell0 == cell1 and len(cell2) == 2 and cell2.issubset(cell1):
+                    l.append(tuple(sorted((comb[0], comb[1], comb[2]))))
+                    break
+                elif len(cell0) == 3 and len(cell1) == 2 and len(cell2) == 2 and \
+                        cell1.issubset(cell0) and cell2.issubset(cell0) and len(cell1 & cell2) == 1:
+                    l.append(tuple(sorted((comb[0], comb[1], comb[2]))))
+                    break
+                elif len(cell0) == 2 and len(cell1) == 2 and len(cell1) == 2 and \
+                        len(cell0 & cell1) == 2 and len(cell1 & cell2) == 2 and \
+                        len(cell0 & cell2) == 2 and len(cell0 & cell1 & cell2) == 1:
+                    l.append(tuple(sorted((comb[0], comb[1], comb[2]))))
+                    break
+        return l
+
+    def search_and_ban_in_subset(cells_to_check, section):
+        """Searches all naked-triples in a subset of cells and bans these numbers from the other elements of subset."""
+        made_deduction = False
+        allowed_numbers = _allowed_numbers(sudoku, cells_to_check)
+        naked_triples = search_for_naked_triples(allowed_numbers)
+        for triple in naked_triples:
+            cell0 = cells_to_check[triple[0]]
+            cell1 = cells_to_check[triple[1]]
+            cell2 = cells_to_check[triple[2]]
+            deleted_numbers = set(
+                sudoku.allowed[cell0[0]][cell0[1]].allowed() + sudoku.allowed[cell1[0]][cell1[1]].allowed() +
+                sudoku.allowed[cell2[0]][cell2[1]].allowed())
+            cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones() + sudoku.allowed[cell1[0]][cell1[1]].notNones() + \
+                         sudoku.allowed[cell2[0]][cell2[1]].notNones()
+            for cell in cells_to_check:
+                if cell not in (cell0, cell1, cell2):
+                    made_deduction |= _ban_numbers(sudoku, cell, deleted_numbers, "naked-triple", cells_used,
+                                                   {'cell1': cell1, 'cell2': cell2, 'nums': deleted_numbers,
+                                                    'section': section})
+        return made_deduction
+
+    return _apply_for_nines(search_and_ban_in_subset)
+
+
+def hidden_triples(sudoku):
+    """RULE: If three numbers can only go in up to 3 cells within a territory(row/col/sec), ban other numbers from these cells."""
+
+    def search_hidden_triples(elems):
+        res = dict()
+        where_can_go = {i: set() for i in range(1, 10)}  # i-th number in which indices of elems can go
+        for idx, elem in enumerate(elems):
+            for num in elem:
+                where_can_go[num].add(idx)
+
+        for nums in combinations(range(1, 10), 3):
+            nums_can_go = tuple(where_can_go[nums[0]] | where_can_go[nums[1]] | where_can_go[nums[2]])
+            if len(where_can_go[nums[0]]) > 1 and len(where_can_go[nums[1]]) > 1 and len(where_can_go[nums[2]]) > 1 and \
+                    len(nums_can_go) == 3:
+                res[nums_can_go] = nums
+        return res
+
+    def search_and_ban_in_subset(cells_to_check, section):
+        made_deduction = False
+        allowed_numbers = _allowed_numbers(sudoku, cells_to_check)
+        triples = search_hidden_triples(allowed_numbers)
+        for triple, except_nums in triples.items():
+            cell0 = cells_to_check[triple[0]]
+            cell1 = cells_to_check[triple[1]]
+            cell2 = cells_to_check[triple[2]]
+            cells_used = []
+            for cell in cells_to_check:
+                if cell not in (cell0, cell1, cell2):
+                    cells_used += [sudoku.allowed[cell[0]][cell[1]][n] for n in except_nums]
+            details = {'cell1': cell0, 'cell2': cell1, 'cell3': cell2,'nums':except_nums,'section': section}
+            made_deduction |= _ban_numbers(sudoku, cell0,
+                                           filter(lambda x: x not in except_nums, allowed_numbers[triple[0]]),
+                                           "hidden_triple", cells_used, details)
+            made_deduction |= _ban_numbers(sudoku, cell1,
+                                           filter(lambda x: x not in except_nums, allowed_numbers[triple[1]]),
+                                           "hidden_triple", cells_used, details)
+            made_deduction |= _ban_numbers(sudoku, cell2,
+                                           filter(lambda x: x not in except_nums, allowed_numbers[triple[2]]),
+                                           "hidden_triple", cells_used, details)
         return made_deduction
 
     return _apply_for_nines(search_and_ban_in_subset)
@@ -142,7 +248,7 @@ def square_line(sudoku):
                 reason = [info for key, info in sudoku.secpos[sec][val].items() if key[1] != col and info is not None]
                 for row in range(9):
                     if row//3!=sec//3:
-                        made_deduction|=sudoku.ban(row,col,val+1,"square_line",reason,details={'rc':'col', 'line':row, 'sec': sec})
+                        made_deduction|=sudoku.ban(row,col,val+1,"square_line",reason,details={'rc':'col', 'line':col, 'sec': sec})
     return made_deduction
 
 def line_square(sudoku):
@@ -169,16 +275,113 @@ def line_square(sudoku):
                 for i,j in product(range(3),range(3)):
                     r,c=local_to_global(sec,i,j)
                     if c!=col:
-                        made_deduction|=sudoku.ban(r,c,val+1,"line_square",reason,details={'rc':'col', 'line':col, 'sec': sec})
+                        made_deduction|=sudoku.ban(r,c,val+1,"col_square",reason,details={'rc':'col', 'line':col, 'sec':sec})
+    return made_deduction
+
+def ywing(sudoku):
+    '''RULE: If three cells have two candidates each: AB, AC and BC respectively, and the first and second share a territory (row, column or square)
+    and the first and third share a territory, then all cells that share a territory with both the second and third cannot be C
+
+    EXAMPLE: if three of corners of a rectangle have two candidates each AC, AB and BC, with the first and third not sharing a side
+    then C can be removed from the fourth corner. (marked with C+)
+    ============================
+     || --  AB  --|| -- AC  -- ||
+     || --  --  --|| -- --  --||
+     || --  BC  --|| -- C+  -- ||
+     ============================
+
+    A more general example:
+     ============================
+     || C+  AB  C+|| -- AC  -- ||
+     || --  --  --|| -- --  --||
+     || BC  --  --|| C+ C+  C+ ||
+     ============================'''
+    # (i,j)=AC and (k,l)=BC
+    def allowed_nums_multicells(*args):
+        """Input: cells. Output: numbers that can be written in all these cells."""
+        return set.intersection(*[set(_allowed_numbers(sudoku,[arg])[0]) for arg in args])
+    
+    def cells_in_same_sec(cell, col={0,1,2}, row={0,1,2}):
+        """Returns a list with the cells that are not set and are in the same sec as cell.
+        You can also set the (local)col or (local)row."""
+        sec = cell_section(cell[0],cell[1])
+        res = []
+        for i,j in product(range(3),range(3)):
+            if i in row and j in col:
+                new_cell = local_to_global(sec, i, j)
+                if len(allowed_nums_multicells(new_cell)) > 0:
+                    res.append(new_cell)
+        return res
+
+    made_deduction = False
+    for cell1 in product(range(9),range(9)):
+        for cell2 in product(range(9),range(9)):
+            if len(allowed_nums_multicells(cell1)) == 2 and len(allowed_nums_multicells(cell2)) == 2 and \
+               len(allowed_nums_multicells(cell1,cell2)) == 1 and \
+               not (cell1[0] == cell2[0] and cell1[1] == cell2[1]):
+                if len(set((cell1[0],cell2[0]))) == 2 and len(set((cell1[1],cell2[1]))) == 2:
+                    # It is a rectangle
+                    cell0 = (cell1[0], cell2[1])
+                    cell3 = (cell2[0], cell1[1])
+                    if len(allowed_nums_multicells(cell0)) == 2 and \
+                       len(allowed_nums_multicells(cell0,cell1)) == 1 and \
+                       len(allowed_nums_multicells(cell0,cell2)) == 1 and \
+                       len(allowed_nums_multicells(cell0,cell1,cell2)) == 0:
+                        # Good rectangle.
+                        deleted_number = set.intersection(allowed_nums_multicells(cell1,cell2)).pop()
+                        cells_used = sudoku.allowed[cell0[0]][cell0[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
+                        details = {'main':cell0,'main_allowed':allowed_nums_multicells(cell3),'second1':cell1,'second1_allowed':allowed_nums_multicells(cell1),'second2':cell2,'second2_allowed':allowed_nums_multicells(cell2)}
+                        made_deduction |= sudoku.ban(cell3[0],cell3[1],deleted_number,"ywing",cells_used, details)
+                    if len(allowed_nums_multicells(cell3)) == 2 and \
+                       len(allowed_nums_multicells(cell3,cell1)) == 1 and \
+                       len(allowed_nums_multicells(cell3,cell2)) == 1 and \
+                       len(allowed_nums_multicells(cell3,cell1,cell2)) == 0:
+                        # Good rectangle.
+                        deleted_number = set.intersection(allowed_nums_multicells(cell1,cell2)).pop()
+                        cells_used = sudoku.allowed[cell3[0]][cell3[1]].notNones()+sudoku.allowed[cell1[0]][cell1[1]].notNones()+sudoku.allowed[cell2[0]][cell2[1]].notNones()
+                        details = {'main':cell3,'main_allowed':allowed_nums_multicells(cell3),'second1':cell1,'second1_allowed':allowed_nums_multicells(cell1),'second2':cell2,'second2_allowed':allowed_nums_multicells(cell2)}
+                        made_deduction |= sudoku.ban(cell0[0],cell0[1],deleted_number,"ywing",cells_used, details)
+                elif cell1[0] == cell2[0] and cell_section(cell1[0],cell1[1]) != cell_section(cell2[0],cell2[1]):
+                    # One row, but not in the same sec
+                    main_cell = cell1
+                    second_cell = cell2
+                    other_cells = cells_in_same_sec(main_cell, row = {0,1,2}-{global_to_local(second_cell[0],second_cell[1])[0]})
+                    for cell3 in other_cells:
+                        if len(allowed_nums_multicells(cell3)) == 2 and  \
+                            len(allowed_nums_multicells(main_cell,cell3)) == 1 and len(allowed_nums_multicells(second_cell,cell3)) == 1 and \
+                            len(allowed_nums_multicells(main_cell,second_cell, cell3)) == 0:
+                            deleted_number = allowed_nums_multicells(second_cell,cell3).pop()
+                            cells_used = sudoku.allowed[main_cell[0]][main_cell[1]].notNones() + sudoku.allowed[second_cell[0]][second_cell[1]].notNones() + sudoku.allowed[cell3[0]][cell3[1]].notNones()
+                            for cell4 in cells_in_same_sec(second_cell,row={global_to_local(cell3[0],cell3[1])[0]}):
+                                if deleted_number in allowed_nums_multicells(cell4):
+                                    details = {'main':main_cell,'main_allowed':allowed_nums_multicells(main_cell),'second1':second_cell,'second1_allowed':allowed_nums_multicells(second_cell),'second2':cell3,'second2_allowed':allowed_nums_multicells(cell3)}
+                                    made_deduction |= sudoku.ban(cell4[0],cell4[1],deleted_number,"ywing",cells_used, details)
+
+                elif cell1[1] == cell2[1] and cell_section(cell1[0],cell1[1]) != cell_section(cell2[0],cell2[1]):
+                    # One col, but not in the same sec
+                    main_cell = cell1
+                    second_cell = cell2
+                    other_cells = cells_in_same_sec(main_cell, col = {0,1,2}-{global_to_local(second_cell[0],second_cell[1])[1]})
+                    for cell3 in other_cells:
+                        if len(allowed_nums_multicells(cell3)) == 2 and  \
+                            len(allowed_nums_multicells(main_cell,cell3)) == 1 and len(allowed_nums_multicells(second_cell,cell3)) == 1 and \
+                            len(allowed_nums_multicells(main_cell,second_cell, cell3)) == 0:
+                            deleted_number = allowed_nums_multicells(second_cell,cell3).pop()
+                            cells_used = sudoku.allowed[main_cell[0]][main_cell[1]].notNones() + sudoku.allowed[second_cell[0]][second_cell[1]].notNones() + sudoku.allowed[cell3[0]][cell3[1]].notNones()
+                            for cell4 in cells_in_same_sec(second_cell,col={global_to_local(cell3[0],cell3[1])[1]}):
+                                if deleted_number in allowed_nums_multicells(cell4):
+                                    details = {'main':main_cell,'main_allowed':allowed_nums_multicells(main_cell),'second1':second_cell,'second1_allowed':allowed_nums_multicells(second_cell),'second2':cell3,'second2_allowed':allowed_nums_multicells(cell3)}
+                                    made_deduction |= sudoku.ban(cell4[0],cell4[1],deleted_number,"ywing",cells_used, details)
     return made_deduction
 
 def xwing(sudoku):
-    '''RULE: if for two rows/cols a given number can only go in 2 places each and these 4 places form a rectangle then ban given number from corresponding cols/rows'''
+    '''RULE: if for two rows/cols a given number can only go in 2 places each and these 4 places form a rectangle
+       then ban given number from corresponding cols/rows'''
     made_deduction=False
     for val in range(9):
         #rows with 2
         possible={i:sudoku.rowpos[i][val].allowed() for i in range(9) if len(sudoku.rowpos[i][val])==2}
-        for i,j in itertools.combinations(possible.keys(),2):
+        for i,j in combinations(possible.keys(),2):
             if possible[i]==possible[j]:
                 reason = sudoku.rowpos[i][val].notNones() + sudoku.rowpos[j][val].notNones()
                 for r in range(9):
@@ -187,7 +390,7 @@ def xwing(sudoku):
                             made_deduction|=sudoku.ban(r,c,val+1,"xwing",reason,details={'rc':'rows', 'lines':[i,j]})
         #cols with 2
         possible={i:sudoku.colpos[i][val].allowed() for i in range(9) if len(sudoku.colpos[i][val])==2}
-        for i,j in itertools.combinations(possible.keys(),2):
+        for i,j in combinations(possible.keys(),2):
             if possible[i]==possible[j]:
                 reason=sudoku.colpos[i][val].notNones()+sudoku.colpos[j][val].notNones()
                 for c in range(9):
@@ -203,7 +406,7 @@ def swordfish(sudoku):
     #rows
     for val in range(9):
         possible = {i: sudoku.rowpos[i][val].allowed() for i in range(9) if len(sudoku.rowpos[i][val]) in [2,3]}
-        for i,j,k in itertools.combinations(possible.keys(),3):
+        for i,j,k in combinations(possible.keys(),3):
             cols=list(set().union(possible[i],possible[j],possible[k]))
             if len(cols)==3:
                 reason = stripped_dict(sudoku.rowpos[i][val],cols) + stripped_dict(sudoku.rowpos[j][val],cols) + stripped_dict(sudoku.rowpos[k][val],cols)
@@ -214,7 +417,7 @@ def swordfish(sudoku):
     #cols
     for val in range(9):
         possible = {i: sudoku.colpos[i][val].allowed() for i in range(9) if len(sudoku.colpos[i][val]) in [2,3]}
-        for i,j,k in itertools.combinations(possible.keys(),3):
+        for i,j,k in combinations(possible.keys(),3):
             rows=list(set().union(possible[i],possible[j],possible[k]))
             if len(rows)==3:
                 reason = stripped_dict(sudoku.colpos[i][val],rows) + stripped_dict(sudoku.colpos[j][val],rows) + stripped_dict(sudoku.colpos[k][val],rows)

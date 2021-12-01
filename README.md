@@ -35,7 +35,7 @@ py sudoku.py
 ```
 
 # Megoldás
-*Utoljára frissítve: 2021.11.24. 22:20*
+*Utoljára frissítve: 2021.11.30. 00:01*
 ## Tartalom
 - *Mit tud a program?*
    - *Mellékes funkciók*
@@ -91,10 +91,13 @@ Ezek az osztályok felelnek továbbá a bizonyítások szép kiírathatóságá�
 ### Implementált következtetési módszerek
 - Egy mezőn csak 1 szám lehet, mert az összes többi szerepel a sorában, oszlopában, vagy a négyzetében
 - Egy soron/oszlopon/négyzeten belül valamelyik számnak egy adott mezőre kell mennie, mert az összes többiről ki van tiltva
-- Egy sorban/oszlopban/négyzetben van két mező, hogy mindkettőbe már csak ugyanaz a két szám kerülhet: kkor a területen máshova nem kerülhet ez a két szám
+- Egy sorban/oszlopban/négyzetben van két mező, hogy mindkettőbe már csak ugyanaz a két szám kerülhet: akkor a területen máshova nem kerülhet ez a két szám
+- Egy sorban/oszlopban/négyzetben van három mező, hogy mindháromba már csak ugyanaz a három szám kerülhet: akkor a területen máshova nem kerülhet ez a három szám
 - Egy sorban/oszlopban/négyzetben van két szám, hogy mindkettő csak két adott mezőre mehet: ekkor ezekre a mezőkre más nem mehet
+- Egy sorban/oszlopban/négyzetben van három szám, hogy mindhárom csak három adott mezőre mehet: ekkor ezekre a mezőkre más nem mehet
 - Egy négyzetben egy adott szám csak egy sorba/oszlopba mehet már: ekkor a sor/oszlop többi mezőjére nem kerülhet ez a szám
 - Egy sorban/oszlopban már csak egy adott négyzeten belülre mehet egy szám: ekkor a négyzeten belül máshova nem mehet ez a szám
+- Egy téglalap három sarkába rendre csak az AC, AB, BC számok vannak: ekkor a téglalap negyedik sarkába nem kerülhet C. (Ez igaz 4 tagú körökre is, nem csak téglalapokra)
 - Két sorban/oszlopban csak 2 helyre kerülhet egy szám és ez a négy mező téglalapot alkot: ekkor a téglalap oszlopaiban/soraiban máshova nem mehet ez a szám
 - Három sorban/oszlopban legfeljebb 3 helyre kerülhet egy szám és ezek legfeljebb 3 oszlopot/sort határoznak meg összesen: ekkor ezekben a oszlopok/sorokban máshova nem mehet ez a szám
 

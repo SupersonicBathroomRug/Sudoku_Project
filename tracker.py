@@ -81,10 +81,24 @@ class Consequence:
             return 'because this number can only go here in its col'
         elif self.rule == 'secpos':
             return 'because this number can only go here in its square'
-        elif self.rule == 'nake_pair':
-            return 'because of nake_pair' # TODO
+        elif self.rule == 'naked_pair':
+            return f'because of naked_pair: in cells {self.details["cell1"]} and {self.details["cell2"]} within {self.details["section"]["type"]} {self.details["section"]["idx"]} with numbers {self.details["nums"]}'
         elif self.rule == 'hidden_pair':
-            return 'because of hidden_pair' # TODO
+            return f'because of hidden_pair: in cells {self.details["cell1"]} and {self.details["cell2"]} within {self.details["section"]["type"]} {self.details["section"]["idx"]} with numbers {self.details["nums"]}'
+        elif self.rule == 'naked_triple':
+            return f'because of naked_triple: in cells {self.details["cell1"]}, {self.details["cell2"]} and {self.details["cell3"]} within {self.details["section"]["type"]} {self.details["section"]["idx"]} with numbers {self.details["nums"]}'
+        elif self.rule == 'hidden_triple':
+            return f'because of hidden_triple: in cells {self.details["cell1"]}, {self.details["cell2"]} and {self.details["cell3"]} within {self.details["section"]["type"]} {self.details["section"]["idx"]} with numbers {self.details["nums"]}'
+        elif self.rule == 'ywing':
+            return f'because of ywing: with cells {self.details["main"]}, {self.details["second1"]}, {self.details["second2"]} and numbers {self.details["main_allowed"]}, {self.details["second1_allowed"]}, {self.details["second2_allowed"]}, respectively.'
+        elif self.rule == 'square_row':
+            return 'because [this number can only go in this row within a square] this number cannot go elsewhere in this row'
+        elif self.rule == 'square_col':
+            return 'because [this number can only go in this col within a square] this number cannot go elsewhere in this col'
+        elif self.rule == 'row_square':
+            return 'because [this number can only go in this square within its row] this number cannot go in other rows in this square'
+        elif self.rule == 'col_square':
+            return 'because [this number can only go in this square within its col] this number cannot go in other cols in this square'
         elif self.rule == 'square_line':
             return f'because of square_line: [this number can only go in {self.details["rc"]} {self.details["line"]} within square {self.details["sec"]}] so this number cannot go elsewhere in this {self.details["rc"]}'
         elif self.rule == 'line_square':

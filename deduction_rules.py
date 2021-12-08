@@ -175,8 +175,8 @@ def naked_triples(sudoku):
                          sudoku.allowed[cell2[0]][cell2[1]].notNones()
             for cell in cells_to_check:
                 if cell not in (cell0, cell1, cell2):
-                    made_deduction |= _ban_numbers(sudoku, cell, deleted_numbers, "naked-triple", cells_used,
-                                                   {'cell1': cell1, 'cell2': cell2, 'nums': deleted_numbers,
+                    made_deduction |= _ban_numbers(sudoku, cell, deleted_numbers, "naked_triple", cells_used,
+                                                   {'cell1': cell0, 'cell2': cell1, 'cell3': cell2, 'nums': deleted_numbers,
                                                     'section': section})
         return made_deduction
 

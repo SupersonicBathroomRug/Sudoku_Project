@@ -370,14 +370,14 @@ class ProofStep:
             for step in self.proof:
                 if isinstance(step, Deduction):
                     d[step] = len(ret)
-                    ret.append(f'(L{i}) '+self._to_string(step, self.chosen_reasons[step])+" [{0}]".format(', '.join((str(d[s]) for s in self.chosen_reasons[step].of if isinstance(s, Deduction)))))
+                    ret.append(f'(L{i}) '+self._to_string(step)+" [{0}]".format(', '.join((str(d[s]) for s in self.chosen_reasons[step].of if isinstance(s, Deduction)))))
                     i += 1
             return ret
         else:
             ret = []
             for i, step in enumerate(self.proof):
                 if isinstance(step, Deduction):
-                    ret.append(f'(L{i}) '+self._to_string(step, self.chosen_reasons[step])+" [{0}]".format(', '.join((str(self.proof_order[s]) for s in self.chosen_reasons[step].of))))
+                    ret.append(f'(L{i}) '+self._to_string(step)+" [{0}]".format(', '.join((str(self.proof_order[s]) for s in self.chosen_reasons[step].of))))
                 else: # isinstance(step, IsValue)
                     ret.append(f'(L{i}) '+self._to_string(step))
             return ret

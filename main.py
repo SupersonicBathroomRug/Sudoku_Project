@@ -176,4 +176,4 @@ def fetchsolve(url="https://nine.websudoku.com/?level=4&set_id=6169806040"):
     sud.interactive_solve()
 
 if __name__ == "__main__":
-    fetchsolve()
+    ywingtest2()

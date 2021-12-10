@@ -17,7 +17,8 @@ from consoleapp import ConsoleApp
 from consolestyle import fclr, style
 import boardio
 from boardio import print
-from deduction_rules import hidden_pair, hidden_triples,  naked_pair, naked_triples, only_one_value, only_this_cell, line_square, square_line, ywing, xwing, swordfish
+from deduction_rules import hidden_pair, hidden_triples, naked_pair, naked_triples, only_one_value, only_this_cell, \
+    line_square, square_line, ywing, xwing, swordfish, Contradiction
 from tracker import CantBe, Consequence, Deduction, IsValue, Knowledge, MustBe, ProofStep
 from graph import print_graph
 from util import cell_section, local_to_global, global_to_local, diclen
@@ -122,6 +123,7 @@ class Sudoku:
         for row, col, val in tuples:
             self[row, col] = val
         self.starting_board = [[self.board[i][j] for j in range(9)] for i in range(9)]
+        self.contradictory=False
 
     def __setitem__(self, key, val):
         '''Fill in the given cell with the given value.\\
@@ -262,6 +264,10 @@ class Sudoku:
                 made_deduction = False
             except ResetDeductionSearch:
                 made_deduction = True
+            except Contradiction as c:
+                print(f"{fclr.RED}===============ERROR:Sudoku does not have solution, reason: {c.message}==============={fclr.DEFAULT}")
+                self.contradictory = True
+                return False
 
         self.deduction_time += time.time() - timestamp
         timestamp = time.time()

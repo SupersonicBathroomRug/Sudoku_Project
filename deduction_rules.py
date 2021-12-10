@@ -2,6 +2,9 @@ from itertools import combinations, permutations, product
 from tracker import MustBe
 from util import cell_section, global_to_local, local_to_global
 
+class Contradiction(Exception):
+    def __init__(self, message):
+        self.message=message
 
 def only_one_value(sudoku):
     """RULE: only 1 value can be written to this cell, as all others are present in this row+column+section"""
@@ -11,8 +14,7 @@ def only_one_value(sudoku):
             continue
         tmp = sudoku.allowed[i][j] # which numbers are not present in this row+column+section?
         if len(tmp)==0: # if nothing is allowed in this empty cell: CONTRADICTION!
-            print(f"cannot fill cell {i},{j}")
-            return
+            raise Contradiction(f"no valid value for cell ({i},{j})")
         if len(tmp)==1: # if only a single value is allowed: FILL!
             ass =tmp.last_one()
             made_deduction |= sudoku.make_deduction(MustBe((i,j),ass),

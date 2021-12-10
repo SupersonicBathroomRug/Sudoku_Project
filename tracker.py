@@ -133,9 +133,11 @@ class Deduction:
             return True
         return False
     
-    def __str__(self):
-        '''Only converts the first reasoning to string!'''
-        return str(self.result)+", "+str(self.consequence_of[0])
+    def to_string(self, chosen_consequence=None):
+        '''Converts this into a string format, assuming that the `Consequence` used in the proof is `chosen_consequence`.
+        When `None`, it defaults to the first possible `Consequence`'''
+        if chosen_consequence is None: chosen_consequence = self.consequence_of[0]
+        return str(self.result)+", "+str(chosen_consequence)
     
     def __eq__(self, other):
         return id(self) == id(other)
@@ -343,6 +345,12 @@ class ProofStep:
         self.proof.append(step)
     
     # >>> OTHER FUNCTIONS
+    def _to_string(self, lemma):
+        '''Convets a lemma (`Knowledge/Deduction` instance) used in this `ProofStep` to string; calls the `__str__` method correctly.'''
+        if isinstance(lemma, Deduction):
+            return lemma.to_string(self.chosen_reasons[lemma])
+        else:
+            return str(lemma)
     def to_strings(self, reference=False, include_isvalue=False):
         '''Return a list of strings, each representing a step of this proof.'''
         if not reference and not include_isvalue:
@@ -350,11 +358,11 @@ class ProofStep:
             ret = []
             for step in self.proof:
                 if isinstance(step, Deduction):
-                    ret.append(f'(L{i}) '+str(step))
+                    ret.append(f'(L{i}) '+self._to_string(step))
                     i += 1
             return ret
         elif not reference and include_isvalue:
-            return [f'(L{i}) '+str(step) for i, step in enumerate(self.proof)]
+            return [f'(L{i}) '+self._to_string(step) for i, step in enumerate(self.proof)]
         elif reference and not include_isvalue:
             d = {}
             ret = []
@@ -362,16 +370,16 @@ class ProofStep:
             for step in self.proof:
                 if isinstance(step, Deduction):
                     d[step] = len(ret)
-                    ret.append(f'(L{i}) '+str(step)+" [{0}]".format(', '.join((str(d[s]) for s in self.chosen_reasons[step].of if isinstance(s, Deduction)))))
+                    ret.append(f'(L{i}) '+self._to_string(step, self.chosen_reasons[step])+" [{0}]".format(', '.join((str(d[s]) for s in self.chosen_reasons[step].of if isinstance(s, Deduction)))))
                     i += 1
             return ret
         else:
             ret = []
             for i, step in enumerate(self.proof):
                 if isinstance(step, Deduction):
-                    ret.append(f'(L{i}) '+str(step)+" [{0}]".format(', '.join((str(self.proof_order[s]) for s in self.chosen_reasons[step].of))))
+                    ret.append(f'(L{i}) '+self._to_string(step, self.chosen_reasons[step])+" [{0}]".format(', '.join((str(self.proof_order[s]) for s in self.chosen_reasons[step].of))))
                 else: # isinstance(step, IsValue)
-                    ret.append(f'(L{i}) '+str(step))
+                    ret.append(f'(L{i}) '+self._to_string(step))
             return ret
     
     # >>> GETTERS

@@ -250,7 +250,7 @@ def square_line(sudoku):
     return made_deduction
 
 def line_square(sudoku):
-    '''RULE: if number can only go in one square within a line ban that number from rest of the line'''
+    '''RULE: if number can only go in one square within a line ban that number from rest of the square'''
     made_deduction=False
     for row in range(9):
         for val in range(9):
@@ -269,11 +269,11 @@ def line_square(sudoku):
             if len(places) == 1: continue  # avoid redundant ban (can write val to this pos because of only_this_cell)
             if len(set(i//3 for i in places))==1:
                 sec=cell_section(places[0],col)
-                reason=[info for key, info in sudoku.rowpos[col][val].items() if key // 3 != places[0] // 3 and info is not None]
+                reason=[info for key, info in sudoku.colpos[col][val].items() if key // 3 != places[0] // 3 and info is not None]
                 for i,j in product(range(3),range(3)):
                     r,c=local_to_global(sec,i,j)
                     if c!=col:
-                        made_deduction|=sudoku.ban(r,c,val+1,"col_square",reason,details={'rc':'col', 'line':col, 'sec':sec})
+                        made_deduction|=sudoku.ban(r,c,val+1,"line_square",reason,details={'rc':'col', 'line':col, 'sec':sec})
     return made_deduction
 
 def ywing(sudoku):

@@ -71,11 +71,11 @@ def naked_pair(sudoku):
     """RULE: If two cells in the same territory(row/col/sec), can only have the elements of the same 2 size set then ban these numbers from other cells in this territory."""
     
     def search_for_naked_pairs(elems):
-        """Returns a list of 2-tuples, where every tuple contains the indeces of the same input"""
+        """Returns a list of 2-tuples, where every tuple contains the coordinates of the squares of a naked pair"""
         return [(i,j) for i in range(len(elems)) for j in range(i+1,len(elems)) if len(elems[i])==2 and elems[i]==elems[j]]
     
     def search_and_ban_in_subset(cells_to_check, section):
-        """Searches all nake-pairs in a subset of cells and bans these numbers from the other elements of subset."""
+        """Searches all naked-pairs in a subset of cells and bans these numbers from the other elements of subset."""
         made_deduction = False
         allowed_numbers = _allowed_numbers(sudoku,cells_to_check)
         naked_pairs = search_for_naked_pairs(allowed_numbers)

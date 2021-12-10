@@ -154,7 +154,7 @@ def ywingtest2():
         [0, 7, 0, 0, 0, 2, 9, 0, 0],
         [8, 6, 9, 0, 2, 1, 0, 7, 3],
         [5, 1, 0, 0, 7, 9, 0, 6, 2],
-        [2, 0, 7, 0, 9, 6, 0, 0, 9]])
+        [2, 0, 7, 0, 8, 6, 0, 0, 9]])
     sud.interactive_solve()
 
 # This is an example where you can use hidden_triples

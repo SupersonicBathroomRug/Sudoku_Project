@@ -83,7 +83,7 @@ class Sudoku:
     '''A class representing a 9×9 sudoku board. Capable of solving the sudoku. Contains large amounts of helper data.'''
 
     # >>> DATA MANIPULATION
-    def __init__(self, board=None, tuples=None, k_opt=False, ip_time_limit=0.5, greedy=True, reset_always=False, ignore_filled=False):
+    def __init__(self, board=None, tuples=None, k_opt=False, ip_time_limit=10, greedy=True, reset_always=False, ignore_filled=False):
         '''Initialize a sudoku either with:\n
         `board`: `list` of `list`s\\
         >   A matrix representation of the sudoku table, with 0s in empty cells.

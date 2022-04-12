@@ -40,7 +40,7 @@ This starts an interactive solver, through which detailed information can be acq
 
 The interactive solver can also fetch steps of the proof and the required information to make given deductions, statistics about the solve, export information into a text document and contains multiple options for displaying the solution and its steps.
 
-Another feature is *k-optimization*, which tries to minimize the `k` of the problem statements within the constraints of such a solve. This is somewhat of an afterthought in this project, so it isn't particularly fast and does not give an optimal solution to the original problem. To make matters worse, it uses an IP solver, therefore it can be *extremely* slow.
+Another feature is *k-optimization*, which tries to minimize the `k` of the problem statements within the constraints of such a solve. This is not particularly compatible with solving in a humanlike manner, so it does not give an optimal solution to the original problem. It also uses an IP solver, therefore it can be *extremely* slow in somme cases.
 
 ## Outline of how the solver works
 The solver consists of two larger nested cycles:

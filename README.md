@@ -1,3 +1,237 @@
+A sudoku solver that uses humanlike reasoning patterns with additional features.
+
+# Quickstart:
+Prerequisites: python3, pip
+
+Install the required packages with:
+```
+pip install -r requirements.txt
+```
+
+Then run with:
+```
+py sudoku.py
+```
+Type `help` for available options. Note that the last option (with an empty command) is just hitting enter, which attempts to solve the given sudoku puzzle. Prior to this options can be set with input such as `k-optimization=true`/`k-opt=true`, `ip-time-limit=10`/`ip-t=10`. Note that most of this is quite forgiving and has multiple abbreviation options.
+
+Try hitting enter, entering `proof` and `stats`, and then `playback` to run through the proof step by step with illustrations of the board state with pencilmarks included.
+
+`ban <cells> <values>` and `set <row> <column> <value>` can be used to make 'Deus-ex' steps if the solver cannot progress and you see that a given field cannot/has to contain a given number. Note that if 'Deus-ex' step is wrong the solver can only detect the puzzle is unsolvable in obvious cases such as there being no valid number for a field, or no valid field for a number in an area.
+
+# Abridged Problem Statement
+The original problem was to solve a sudoku such that in one step you are only able to view the values in k fields. More specifically do this by creating a list of subsets of fields and loop over these subsets, trying to write numbers into new fields based on only that subset.
+
+Notice that this is a lot closer to the way people solve a sudoku than how it is more easily done using a dfs or an IP solver, even though pencilmarking numbers into fields is not allowed.
+
+*Instead of doing this our group decided to write a sudoku solver that emulates a human solve as closely as possible, also giving a proof of unicity. The problem statement inspired the feature of k-optimization*
+
+# Solution
+Last updated: 2021.11.30. 00:01
+
+## Features
+Solves a sudoku using a humanlike approach using constructing a proof for the solutions unicity along the way. Because of this proof it is assumed that **the solution is unique**, however this assumption is not used in any of the reasoning steps and can be checked using the method `is_unique` which uses the standard dfs solving method.
+
+The code can be run from console on a sudoku that can be provided through
+- a link to a URL (of format `http://nine.websudoku.com/<something>`)
+- our console based sudoku editor
+with the code otherwise solving a default problem.
+
+This starts an interactive solver, through which detailed information can be acquired (and saved) about the current solve. There are options to turn of interactivity and only 
+
+The interactive solver can also fetch steps of the proof and the required information to make given deductions, statistics about the solve, export information into a text document and contains multiple options for displaying the solution and its steps.
+
+Another feature is *k-optimization*, which tries to minimize the `k` of the problem statements within the constraints of such a solve. This is somewhat of an afterthought in this project, so it isn't particularly fast and does not give an optimal solution to the original problem. To make matters worse, it uses an IP solver, therefore it can be *extremely* slow.
+
+## Outline of how the solver works
+The solver consists of two larger nested cycles:
+
+At the end of each iteration of the outer cycle a number (if possible) is written into a field. Before entering a number *all possible* deductions of the implemented types are made in the inner cycle. Note that these deduction can be alternate proofs to deductions made in this same iteration of the outer cycle, for instance it is possible to know that a field may not contain a 3 because of both rules 4 and 5. (which will be elaborated on later)
+
+When no further deduction can be made, a deduction of the form *"this field must contain the number x"* is chosen and x is written in the specified field. If *k-optimization* is disabled, this is done at random, otherwise a close to optimal choice is made. At this point the program goes back to looking for deductions.
+
+In practice this is somewhat more complicated: for faster run speeds the program has options `greedy` and `reset-always`, which skip parts of the above outlined algorithm. If `reset-always` is on, then whenever a deduction if found the code starts looking for a new deduction starting from the simplest type going to the most complex instead of continuing from where it left off. If `greedy` is activated, then whenever a deduction that fills a field is found that field is filled. With *k-optimization* activated this would be extremely counterproductive, so the deduction is only made if it only uses elementary deductions of type `Knowledge`. (This in the projects current form means that it is an instance of `IsValue`, and is one of the four most elementary deduction rules with `k<=8`).
+
+### Data structures used in the proof
+#### __Indexing__
+Rows up to down and columns are numbered left to right from 0 to 8. `(r,c)` coordinates are row and column.
+
+The `Sudoku` class, which is the main class of the program, contains a lot of auxiliary variables. `allowed` contains the numbers that can go in the element `j` of row `i`, with `rowpos` containing the numbers that could still go in the `j`-th field of row `i`. In the implementation all four of `allowed`, `rowpos`, `colpos`, `secpos` are arrays of arrays coitaining `diclen` objects, which are practically `dict`s. When the value to a key is `None` this value can still go in the given field, otherwise it is an instance of `Knowledge` or `Deduction`, that explains *why* this option is not feasible.
+
+#### __Following Proofs__
+Deductions are stored in memory in an object-oriented manner. `Deduction`s are deductions and instances of `Knowledge` are quantums of information: thus every `Deduction` contains a `Knowledge`, which stores the inference made. A `Deduction` is based around the end result of a single deduction and can therefore store multiple proofs for the given deduction. Each proof is stored in an instance of `Consequence`. This contains what information (`Deduction`/`Knowledge` instances) this deduction uses and the deduction rule used, but the end result is not stored here. `Deductions` and `IsValue` type `Knowledge` instances are usually stored in one of the four aforementioned arrays in their designated positions.
+
+When a number is written in a field the already filled fields used, and the `Deduction`s through which they are used are handled by the `ProofStep` class and are processed in its ``__init__`` method. After this the class saves the important data points to do with the chain of deductions that lead to the filling of the field. An ASCI "image" of the type of graph `__init__` handles can be found at the end of this readme.
+
+These classes are also responsible for the pretty printing of proofs.
+
+### Implemented deduction methods
+For sake of brevity area will be short for row/column/square in this section.
+- A field can only contain a given number, since all others are already in its row, column or square
+- A number has to be in a given field of an area as it cannot go in any other fields in this area
+- If there are two fields in an area that can only contain the same two numbers, then these numbers cannot go anywhere else in this area
+- The same as the previous but with 3 instead of two
+- If there are two numbers that can only go in two fields within an area, then no other numbers can go in these fields
+- The same as the previous but with 3 instead of two
+- If a number can only go in one row/col within a square, then it has to be within this squar in the given row/col
+- If a number can only go in a given square within a row/col, then it has to go in that row/col within the given square
+- Three corners of a rectangle only have two options each: AB, AC and BC, then C cannot go in the fourth corner (ordering of corners is important, and a more general interpretation of a rectangle is also implemented, see example)
+```
+EXAMPLE: C cannot go in the fourth corner. (marked with C+)
+============================
+|| --  AB  --|| -- AC  -- ||
+|| --  --  --|| -- --  --||
+|| --  BC  --|| -- C+  -- ||
+============================
+A more general example:
+============================
+|| C+  AB  C+|| --  AC  --||
+|| --  --  --|| --  --  --||
+|| BC  --  --|| C+  C+  C+||
+============================
+```
+- A given number only has two position candidates within two parallel rows/cols that form a rectangle, then that number cannot go elswhere in the perpendicular cols/rows
+- The same as the previous but with 3 instead of two
+
+## Descriptions of some of the main classes
+#### `Sudoku` - `sudoku.py`
+Represents a sudoku problem, and is the central class of this project. Contains auxiliary information to help with the solving process, statistics, and settings.
+
+The interactive solver is also handled by this class. Needs to be initialized with a given sudoku problem.
+
+#### `Knowledge` - `tracker.py`
+Contains information about a given field that is computed at some point during the solving process. This is an abstract class extended by classes containing actual information: `MustBe`, `CantBe`, `IsValue`. These classes contain information of that states that a number can/cannot go within a given field, or that it has already been filled in there.
+
+#### `Deduction` - `tracker.py`
+Stores the result (`Knowledge`) of a given deduction along with all the proofs found for it in `Consequence` instances.
+
+#### `Consequence` - `tracker.py`
+Contains a proof for a given deduction in the form of what `Deduction`/`Knowledge` instances are used to come to the given conclusion without storing the conclusion. Is mostly handled within `tracker.py`.
+
+#### `ProofStep` - `tracker.py`
+Chooses a field to fill from the available options in its `__init__`. Can run with *k-optimization* or without. *k-optimization* is done with an IP solver, so it can slow the program down immensely. *k-optimization* is not guaranteed to find the optimal k, since some deductions are removed (at random) to avoid circular reasoning.
+
+This class is also responsible for pretty printing of proofs.
+
+### Other classes
+#### `Myprint` - `boardio.py`
+Wrapper for the print funtcion to make printing to files with it easier.
+
+#### `ConsoleApp` - `consoleapp.py`
+For defining funcitons, their signatures, variables and patterns to enable parsing of input for a console app.
+
+#### `diclen` - `util.py`
+Practically a `dict`, but with some added funcitonality: can quickly calculate number of `None` values, and what keys these belong to.
+
+Used to "answer questions" of type *"where can this number go in this row?"* or *"what numbers are still feasible for this field?"*. `None` means that the given position/number is still feasible. Otherwise the stored value (of type `Knowledge` or `Deduction`) is a proof of why this is not feasible.
+
+## Descriptions of files
+#### `boardio.py`
+Deals with reading, parsing and printing of sudoku problems/board states.
+- fancy or detailed printing of boards
+- parsing of sudoku problems in text format
+- fetching sudoku problem from the internet
+- console based sudoku editor using `Getch.py`
+
+#### `Getch.py`
+Defines a `getch` function that enables reading of single characters in a fashion similar to C. Sadly reads `Ctrl` from `Ctrl+C` as a single character, thus when using this for input keyboard interrupts are not possible.
+
+#### `consoleapp.py`
+Framework for parsing conole commands making it possible to give commands like `ban 1,4 2,5: 3, 9`, `set 1 3 2`, `help`, `print --small` or `proof --reference 4:5`
+
+The `ConsoleApp` class within enables parsing of commands like these, and extraction of parameters in a standard format. Mainly based on regexes.
+#### `consolestyle.py`
+Elements of the enums within this enable formatting of output to console. Note that results vary depending on used terminal, with cmd being quite limited and that of vscode being quite advanced.
+
+#### `main.py`
+Contains sudoku problems for testing and demoing.
+
+#### `deduction_rules.py`
+Contains implementations of various deduction rules. The logic that drives the solving process can be found here, with a separate function for each deduction rule.
+
+#### `util.py`
+Contains utility functions and classes. These mainly deal with conversions between different types of coordinates.
+
+#### `tracker.py`
+Object oriented solution for handling and storage of proofs through the `Knowledge`, `Consequence`, `Deduction` and `ProofStep` classes and descendants of these. Most of it deals with administrative tasks, with a lot of this being pretty printing.
+
+**k-optimization** is implemented here within `ProofStep`.
+
+#### `graph.py`
+Contains `print_graph`, which prints an ASCII representation of the parts of possible proofs of a `Deduction` showing dependency relations.
+
+#### `sudoku.py`
+The most important file in the project, this is the actual main file that should be executed.
+Implements the `Sudoku` class that:
+- contains the interactive solver
+- contains the higher level functions that are used in the solving process, and uses all our other tools
+- makes it possible to run from conole
+
+## Illustration of graph
+The `0`s mark inferences that lead to the field being filled. `O`s are `DEductions`, and left of them are `Consequences` that contain possible proofs. (these are denoted by the first letter of the deduction rule that spawned them) These are connected to the inferences that they use through brances going down. The `*`s at the bottom represent units of elementary information.
+```
+                                                                                    ┌─┬0                              
+                                                                                    a a                               
+                                                                                    │ │                               
+ ┌─────────────┬───┬───┬─────┬───────────────────────────────────────────┬─┬─┬──────┘ │                               
+ ┌─────────────────────┬─────────────────────────────────────────────────┬───┬─┬─┬─┬─┬┘                               
+ │             │   │   │     │                                           │ │ │ │ │ │ │                                
+ │             │   │   │     │                                        ┌─┬O┌─┬O │ │ │ │                                
+ │             │   │   │     │                                        n n n│n  │ │ │ │                                
+ │             │   │   │     │                                        │ │ │││  │ │ │ │                                
+ ┌─────────┬───┬─┬─┬───┬─┬─┬─┬────────────────────────────────────────┘ │ │││  │ │ │ │                                
+ ┌─────────┬─────┬─────┬───┬─────────────────┬─────────────┬─┬─┬─┬─┬─┬─┬┘ │││  │ │ │ │                                
+ ┌─────────┬───┬─┬─┬───┬─┬─┬─┬────────────────────────────────────────────┘││  │ │ │ │                                
+ ┌─────────┬─────┬─────┬───┬─────────────────┬─────────────┬─┬─┬─┬─┬─┬─┬────┘  │ │ │ │                                
+ │         │   │ │ │   │ │ │ │               │             │ │ │ │ │ │ │   │   │ │ │ │                                
+ │         │   │ │ │   │ │ │ │              ┌O             │┌O │┌O┌O │ │   │  ┌O┌O │ │                    ┌0        ┌0
+ │         │   │ │ │   │ │ │ │              n              │n  │n n  │ │   │  n n  │ │                    r         s 
+ │         │   │ │ │   │ │ │ │              │              ││  ││ │  │ │   │  │ │  │ │                    │         │ 
+ ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬─┬─┬┘              ││  ││ │  │ │   │  │ │  │ │                    │         │ 
+ ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬─┬─┬────────────────┘  ││ │  │ │   │  │ │  │ │                    │         │ 
+ ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬─┬─┬────────────────────┘ │  │ │   │  │ │  │ │                    │         │ 
+ ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬─┬─┬──────────────────────┘  │ │   │  │ │  │ │                    │         │ 
+ ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬─┬─┬──────────────────────────────────┘ │  │ │                    │         │ 
+ ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬─┬─┬────────────────────────────────────┘  │ │                    │         │ 
+ ┌─────────┬─────┬─────┬─┬───┬─────────────────────────────────────────────────────────────────────────┬─┬┘         │ 
+ │         │   │ │ │   │ │ │ ┌─────────────────────────────────────────────────────────────┬─────────────────┬─┬─┬─┬┘ 
+ │         │   │ │ │   │ │ │ │ │ │ │ │ │ │ │               │   │     │ │   │       │ │     │           │ │   │ │ │ │  
+ │         │   │ │ │   │ │ │ │ │ │ │ │ │┌O┌O              ┌O  ┌O    ┌O┌O   │      ┌O┌O     │          ┌O┌O   │┌O┌O┌O  
+ │         │   │ │ │   │ │ │ │ │ │ │ │ │h h               n   n     n n    │      n n      │          h h    │n n n   
+ │         │   │ │ │   │ │ │ │ │ │ │ │ ││ │               │   │     │ │    │      │ │      │          │ │    ││ │ │   
+ ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬┘ │               │   │     │ │    │      │ │      │          │ │    ││ │ │   
+ ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬──┘               │   │     │ │    │      │ │      │          │ │    ││ │ │   
+ │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬┘   │     │ │    │      │ │      │          │ │    ││ │ │   
+ │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬────┘     │ │    │      │ │      │          │ │    ││ │ │   
+ │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬──────────┘ │    │      │ │      │          │ │    ││ │ │   
+ │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬────────────┘    │      │ │      │          │ │    ││ │ │   
+ │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬────────────────────────┘ │      │          │ │    ││ │ │   
+ │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬──────────────────────────┘      │          │ │    ││ │ │   
+ ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬──────────────────────────────────────────────────────────────┘ │    ││ │ │   
+ ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬────────────────────────────────────────────────────────────────┘    ││ │ │   
+ │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬────────────────────────────────────────────────────┘ │ │   
+ │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬──────────────────────────────────────────────────────┘ │   
+ │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬────────────────────────────────────────────────────────┘   
+ │         │ │ │ │ │   │ │ │ │ │ │ │ │ │       │ │ │ │ │ │                 │               │                 │        
+ │      ┌0 │ │ │ │ │┌0 │ │ │ │ │┌O┌O┌O┌O       │┌O┌O┌O┌O │                 │               │    ┌0┌0┌0       │        
+ │      s  │ │ │ │ │s  │ │ │ │ │n n n n        │n n n n  │                 │               │    a s s        │        
+ │      │  │ │ │ │ ││  │ │ │ │ ││ │ │ │        ││ │ │ │  │                 │               │    │ │ │        │        
+ ┌─┬─┬─┬┘  │ │ │ │ ││  │ │ │ │ ││ │ │ │        ││ │ │ │  │                 │               │    │ │ │        │        
+ │ │ │ │   ┌─┬─┬─┬─┬┘  │ │ │ │ ││ │ │ │        ││ │ │ │  │                 │               │    │ │ │        │        
+ ┌─────────┬───┬─┬─┬───┬─┬─┬─┬──┘ │ │ │        ││ │ │ │  │                 │               │    │ │ │        │        
+ ┌─────────┬───┬─┬─┬───┬─┬─┬─┬────┘ │ │        ││ │ │ │  │                 │               │    │ │ │        │        
+ ┌─────────┬───┬─┬─┬───┬─┬─┬─┬──────┘ │        ││ │ │ │  │                 │               │    │ │ │        │        
+ ┌─────────┬───┬─┬─┬───┬─┬─┬─┬────────┘        ││ │ │ │  │                 │               │    │ │ │        │        
+ ┌─────────┬───┬─┬─┬───┬─┬─┬─┬──────────────────┘ │ │ │  │                 │               │    │ │ │        │        
+ ┌─────────┬───┬─┬─┬───┬─┬─┬─┬────────────────────┘ │ │  │                 │               │    │ │ │        │        
+ ┌─────────┬───┬─┬─┬───┬─┬─┬─┬──────────────────────┘ │  │                 │               │    │ │ │        │        
+ ┌─────────┬───┬─┬─┬───┬─┬─┬─┬────────────────────────┘  │                 │               │    │ │ │        │        
+ ┌─┬─────────────┬─────────────────────────────┬─────────────────────────────────────────┬─┬─┬─┬┘ │ │        │        
+ │ │ │ ┌───────────────┬───────┬─────────────────────────────────────────────────────────────┬────┘ │        │        
+ │ ┌─────────────────────────┬───────────────────────────────────────────────────────────┬─┬─┬──────┘        │        
+ │ │ │ │   │ │ │ │ │   │ │ │ │ │               │         │                 │             │ │ │ │             │        
+ * * * *   * * * * *   * * * * *               *         *                 *             * * * *             *        
+```
+# Magyar
 # Feladat
 Sudokut könnyű megoldani, ha jó a memóriánk. De mi a helyzet ha nagyon feledékenyek vagyunk, mondjuk egyszerre csak k mező értékére emlékszünk?
 Mely k-kra tudunk megoldani sudokut a következő stratégiával? Még a feladvány ismerete nélkül készítünk egy L listát, aminek minden eleme k darab pozíció a 9*9-es tábláról.
@@ -73,7 +307,7 @@ Minden ciklusban 1 számot szeretnénk a táblázatba beírni. Ehhez a beírás 
 
 Miután nem tudtunk új következtetést levonni, kiválasztunk 1 olyan következtetést, ami azt mondja, hogy *"ide ezt kell írni"*, és végrehajtjuk. Ha nincs *k-optimalizáció*, ezt bután tesszük meg, egyébként pedig kicsit gondolkodunk, hogy a lehető legjobbat válaszzuk. Miután megtörtént a beírás, elkezdünk újra ismeretlen következtetéseket keresni, és megy tovább a ciklus.
 
-Ennél persze az egész kicsit bonyolultabb. A program gyorsítása kedvéért elérhető két beállítás (`greedy` és `reset-always`), amik egy-két részét kivágják a fenti kódnak. Ha a `reset_always` be van kapcsolva, akkor bármelyik olyan következtetés után, ami nem azt mondja, hogy valamit be kell írni, a következő következtetés keresését nem inne fogja folytatni a program, hanem visszaugrik a legegyszerűbb típusú következtetésekhez, és onnan indul elölről. Ha a `greedy` be van kapcsolva, akkor amikor talál egy olyan következtetést, ami egy mező kitöltését vonja maga után, akkor megszakítja a következtetés-keresést, és beírja a most talált számot. Persze ha be van kapcsolva a *k-optimalizáció*, akkor ez igen buta dolog lenne, így ebben az esetben a megszakításnak az plusz feltétele, hogy a következtetés csak "elemi" dolgokat használjon, azaz hogy minden, amire támaszkodik az `Knowledge` példány legyen (ez pedig jelenleg azt jelenti, hogy `IsValue` példány, továbbá a 4 legalapvetőbb szabály egyikéről van szó, és `k<=8` lesz).
+Ennél persze az egész kicsit bonyolultabb. A program gyorsítása kedvéért elérhető két beállítás (`greedy` és `reset-always`), amik egy-két részét kivágják a fenti kódnak. Ha a `reset-always` be van kapcsolva, akkor bármelyik olyan következtetés után, ami nem azt mondja, hogy valamit be kell írni, a következő következtetés keresését nem innen fogja folytatni a program, hanem visszaugrik a legegyszerűbb típusú következtetésekhez, és onnan indul elölről. Ha a `greedy` be van kapcsolva, akkor amikor talál egy olyan következtetést, ami egy mező kitöltését vonja maga után, akkor megszakítja a következtetés-keresést, és beírja a most talált számot. Persze ha be van kapcsolva a *k-optimalizáció*, akkor ez igen buta dolog lenne, így ebben az esetben a megszakításnak az plusz feltétele, hogy a következtetés csak "elemi" dolgokat használjon, azaz hogy minden, amire támaszkodik az `Knowledge` példány legyen (ez pedig jelenleg azt jelenti, hogy `IsValue` példány, továbbá a 4 legalapvetőbb szabály egyikéről van szó, és `k<=8` lesz).
 
 ### Néhány szó a bizonyításokban használt adatstruktúrákról
 #### __Indexelés__
@@ -82,7 +316,7 @@ A sorokat fentről lefele, az oszlopokat balról jobbra számozzuk 0-tól 8-ig. 
 A `Sudoku` osztályban - amely a program központi osztálya - számos segédinformáció van elmentve. Az `allowed` változó például megmondja, hogy az `i`. sor `j`. elemébe milyen számok kerülhetnek, míg a `rowpos` változó megmondja, hogy az `i`. sorban a `j` szám mely mezőkre mehet még. Ezek struktúrálisan úgy vannak megoldva, hogy mind a 4 ilyen jellegű változó (`allowed`, `rowpos`, `colpos`, `secpos`) tömbök tömbje, amiben a sorokat, oszlopokat és a számokat is 0-tól 8-ig vesszük, azaz `colpos[4][6]` azt mondja meg, hogy a 4. indexű oszlopon belül (ez összesen a ötödik, azaz a tábla közepén lévő) a *7-es* szám hova mehet még. A tömbök tömbjének elemei `diclen` objektumok, amik körülbelül `dict`-ek. Ugyanolyan konvenciókkal kell őket is indexelni, mint az eddigieket. Amennyiben az egyik kulcshoz `None` tartozik, az jelzi, hogy még megengedett ezt/ide írni, egyébként pedig egy `Knowledge` vagy `Deduction` példány, ami mutatja, *miért* nem megengedett az adott opció.
 
 #### __Bizonyítások követése__
-Az eddig levont következtetéseket, és hogy mi miből következett (például: ide nem jöhet 3, mert itt, itt és itt 3 van) objektum-orientáltan mentjük el. A `Deduction`-ök jeleznek következtetéseket, míg a `Knwoledge`-ok alapvető információk: így például minden `Deduction` tárol egy `Knowledge`-ot, ami megmondja, milyen következtetést von le. A `Deduction` a levont következtetés köré szerveződik, így több lehetséges indoklást is tud tárolni, hogy *miért* igaz a benne tárolt eredmény: minden ilyen indoklást egy `Consequence` reprezentál. Ő tárolja, mely egyéb információkon (`Deduction`/`Knowledge`) alapul a következtetés, és milyen szabályt alkalmazunk, hogy megkapjuk az eredményt (ez egy szöveges azonosító), ám magát a végeredményt nem tárolja. A `Deduction`-ök és az `IsValue` típusú `Knowledge`-ok pedig alapvetően nem csak a heapen éldegélnek, hanem a fent említett négy tömb egyikében, a megfelelő helyen el vnanak tárolva.
+Az eddig levont következtetéseket, és hogy mi miből következett (például: ide nem jöhet 3, mert itt, itt és itt 3 van) objektum-orientáltan mentjük el. A `Deduction`-ök jeleznek következtetéseket, míg a `Knwoledge`-ok alapvető információk: így például minden `Deduction` tárol egy `Knowledge`-ot, ami megmondja, milyen következtetést von le. A `Deduction` a levont következtetés köré szerveződik, így több lehetséges indoklást is tud tárolni, hogy *miért* igaz a benne tárolt eredmény: minden ilyen indoklást egy `Consequence` reprezentál. Ő tárolja, mely egyéb információkon (`Deduction`/`Knowledge`) alapul a következtetés, és milyen szabályt alkalmazunk, hogy megkapjuk az eredményt (ez egy szöveges azonosító), ám magát a végeredményt nem tárolja. A `Deduction`-ök és az `IsValue` típusú `Knowledge`-ok pedig alapvetően nem csak a heapen éldegélnek, hanem a fent említett négy tömb egyikében, a megfelelő helyen el vannak tárolva.
 
 Azt, hogy mikor tényleg beírunk valamit, mit és hogyan használunk, a `ProofStep` osztály dönti el és fejti vissza az `__init__` metódusa során. Ő ezek után szépen struktúrálva elmenti az adott számbeírással kapcsolatos fontosabb információkat. Arról, hogy milyen gráffal dolgozik az `__init__` folyamán található egy ábra a `README.md` végén.
 

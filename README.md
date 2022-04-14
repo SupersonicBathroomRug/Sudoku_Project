@@ -12,16 +12,16 @@ Then run with:
 ```
 py sudoku.py
 ```
-Type `help` for available options. Note that the last option (with an empty command) is just hitting enter, which attempts to solve the given sudoku puzzle. Prior to this options can be set with input such as `k-optimization=true`/`k-opt=true`, `ip-time-limit=10`/`ip-t=10`. Note that most of this is quite forgiving and has multiple abbreviation options.
+Type `help` for available options. Note that the last option (with an empty command) is just hitting enter, which attempts to solve the given sudoku puzzle. Prior to this settings of the solver can be changed with inputs such as `k-optimization=true`/`k-opt=true`, `ip-time-limit=10`/`ip-t=10`. Commands are quite forgiving and has multiple abbreviation options.
 
 Try hitting enter, entering `proof` and `stats`, and then `playback` to run through the proof step by step with illustrations of the board state with pencilmarks included.
 
-`ban <cells> <values>` and `set <row> <column> <value>` can be used to make 'Deus-ex' steps if the solver cannot progress and you see that a given field cannot/has to contain a given number. Note that if 'Deus-ex' step is wrong the solver can only detect the puzzle is unsolvable in obvious cases such as there being no valid number for a field, or no valid field for a number in an area.
+`ban <cells>: <values>` and `set <row> <column> <value>` can be used to make 'Deus Ex' steps if the solver cannot progress and you see that a given field cannot/has to contain a given number. Note that if you enter incorrect information in a 'Deus Ex' step the solver can only detect the puzzle is unsolvable in obvious cases such as there being no valid number for a field, or no valid field for a number in an area.
 
 # Abridged Problem Statement
-The original problem was to solve a sudoku such that in one step you are only able to view the values in k fields. More specifically do this by creating a list of subsets of fields and loop over these subsets, trying to write numbers into new fields based on only that subset.
+The original problem was to solve a sudoku such that in one step you are only able to view the values in `k` fields. More specifically, do this by creating a list of subsets of fields and loop over these subsets, trying to write numbers into new fields based on only the already filled cells in that subset.
 
-Notice that this is a lot closer to the way people solve a sudoku than how it is more easily done using a dfs or an IP solver, even though pencilmarking numbers into fields is not allowed.
+This is a lot closer to the way people solve a sudoku than how it is more easily done using a dfs or an IP solver, even though pencilmarking numbers into fields is not allowed.
 
 *Instead of doing this our group decided to write a sudoku solver that emulates a human solve as closely as possible, also giving a proof of unicity. The problem statement inspired the feature of k-optimization*
 
@@ -29,50 +29,50 @@ Notice that this is a lot closer to the way people solve a sudoku than how it is
 Last updated: 2021.11.30. 00:01
 
 ## Features
-Solves a sudoku using a humanlike approach using constructing a proof for the solutions unicity along the way. Because of this proof it is assumed that **the solution is unique**, however this assumption is not used in any of the reasoning steps and can be checked using the method `is_unique` which uses the standard dfs solving method.
+Solves a sudoku using a humanlike approach, constructing a proof for the solutions unicity along the way. Because of this proof it is assumed that **the solution is unique**, however this assumption is not used in any of the reasoning steps and can be checked using the method `is_unique` which uses the standard dfs solving method.
 
 The code can be run from console on a sudoku that can be provided through
-- a link to a URL (of format `http://nine.websudoku.com/<something>`)
+- a link to a URL (accepts links of format `http://nine.websudoku.com/<something>`)
 - our console based sudoku editor
 with the code otherwise solving a default problem.
 
-This starts an interactive solver, through which detailed information can be acquired (and saved) about the current solve. There are options to turn of interactivity and only 
+This starts an interactive solver, through which detailed information can be acquired (and saved) about the current solve. There is an option to turn off interactivity and only see the finished solution.
 
 The interactive solver can also fetch steps of the proof and the required information to make given deductions, statistics about the solve, export information into a text document and contains multiple options for displaying the solution and its steps.
 
-Another feature is *k-optimization*, which tries to minimize the `k` of the problem statements within the constraints of such a solve. This is not particularly compatible with solving in a humanlike manner, so it does not give an optimal solution to the original problem. It also uses an IP solver, therefore it can be *extremely* slow in somme cases.
+Another feature is *k-optimization*, which tries to minimize the `k` of the problem statement within the constraints of such a solve. This is not particularly compatible with solving in a humanlike manner, so it does not give an optimal solution to the original problem. It also uses an IP solver, therefore it can be *extremely* slow in some cases.
 
 ## Outline of how the solver works
 The solver consists of two larger nested cycles:
 
-At the end of each iteration of the outer cycle a number (if possible) is written into a field. Before entering a number *all possible* deductions of the implemented types are made in the inner cycle. Note that these deduction can be alternate proofs to deductions made in this same iteration of the outer cycle, for instance it is possible to know that a field may not contain a 3 because of both rules 4 and 5. (which will be elaborated on later)
+At the end of each iteration of the outer cycle, a number (if possible) is written into a field. Before entering a number *all possible* deductions of the implemented types are made in the inner cycle. These deductions can be alternate proofs to deductions made in this same iteration of the outer cycle. For instance it can follow from both deduction rules 4 and 5 that a field may not contain a 3. (the deduction rules will be elaborated on later)
 
 When no further deduction can be made, a deduction of the form *"this field must contain the number x"* is chosen and x is written in the specified field. If *k-optimization* is disabled, this is done at random, otherwise a close to optimal choice is made. At this point the program goes back to looking for deductions.
 
-In practice this is somewhat more complicated: for faster run speeds the program has options `greedy` and `reset-always`, which skip parts of the above outlined algorithm. If `reset-always` is on, then whenever a deduction if found the code starts looking for a new deduction starting from the simplest type going to the most complex instead of continuing from where it left off. If `greedy` is activated, then whenever a deduction that fills a field is found that field is filled. With *k-optimization* activated this would be extremely counterproductive, so the deduction is only made if it only uses elementary deductions of type `Knowledge`. (This in the projects current form means that it is an instance of `IsValue`, and is one of the four most elementary deduction rules with `k<=8`).
+In practice this is somewhat more complicated: for a faster run speed the program has options `greedy` and `reset-always`, which skip parts of the above outlined algorithm. If `reset-always` is on, then whenever a deduction is found, the code starts looking for a new deduction, starting from the simplest type going to the most complex, instead of continuing from where it left off. If `greedy` is activated, then whenever a deduction that fills a field is found that field is filled. With *k-optimization* activated this would be extremely counterproductive, so the deduction is only made if it only uses elementary deductions of type `Knowledge`. (This, in the projects current form means that it is an instance of `IsValue`, and is one of the four most elementary deduction rules with `k<=8`).
 
 ### Data structures used in the proof
 #### __Indexing__
 Rows up to down and columns are numbered left to right from 0 to 8. `(r,c)` coordinates are row and column.
 
-The `Sudoku` class, which is the main class of the program, contains a lot of auxiliary variables. `allowed` contains the numbers that can go in the element `j` of row `i`, with `rowpos` containing the numbers that could still go in the `j`-th field of row `i`. In the implementation all four of `allowed`, `rowpos`, `colpos`, `secpos` are arrays of arrays coitaining `diclen` objects, which are practically `dict`s. When the value to a key is `None` this value can still go in the given field, otherwise it is an instance of `Knowledge` or `Deduction`, that explains *why* this option is not feasible.
+The `Sudoku` class, which is the main class of the program, contains a lot of auxiliary variables. `allowed` contains the numbers that can go in field no. `j` of row `i`. `rowpos` contains the fields where the number `j` can go in row `i`. In the implementation all four of `allowed`, `rowpos`, `colpos`, `secpos` are arrays of arrays containing `diclen` objects, which are practically `dict`s. When the value to a key is `None` this value can still go in the given field, otherwise it is an instance of `Knowledge` or `Deduction`, that explains *why* this option is not feasible.
 
 #### __Following Proofs__
 Deductions are stored in memory in an object-oriented manner. `Deduction`s are deductions and instances of `Knowledge` are quantums of information: thus every `Deduction` contains a `Knowledge`, which stores the inference made. A `Deduction` is based around the end result of a single deduction and can therefore store multiple proofs for the given deduction. Each proof is stored in an instance of `Consequence`. This contains what information (`Deduction`/`Knowledge` instances) this deduction uses and the deduction rule used, but the end result is not stored here. `Deductions` and `IsValue` type `Knowledge` instances are usually stored in one of the four aforementioned arrays in their designated positions.
 
-When a number is written in a field the already filled fields used, and the `Deduction`s through which they are used are handled by the `ProofStep` class and are processed in its ``__init__`` method. After this the class saves the important data points to do with the chain of deductions that lead to the filling of the field. An ASCI "image" of the type of graph `__init__` handles can be found at the end of this readme.
+When a number is written in a field the already filled fields used, and the `Deduction`s through which they are used are handled by the `ProofStep` class and are processed in its ``__init__`` method. After this, the class saves the important data points to do with the chain of deductions that lead to the filling of the field. An ASCI "image" of the type of graph `__init__` handles can be found at the end of this readme.
 
 These classes are also responsible for the pretty printing of proofs.
 
 ### Implemented deduction methods
-For sake of brevity area will be short for row/column/square in this section.
+For sake of brevity "area" will be short for row/column/square in this section.
 - A field can only contain a given number, since all others are already in its row, column or square
 - A number has to be in a given field of an area as it cannot go in any other fields in this area
 - If there are two fields in an area that can only contain the same two numbers, then these numbers cannot go anywhere else in this area
 - The same as the previous but with 3 instead of two
 - If there are two numbers that can only go in two fields within an area, then no other numbers can go in these fields
 - The same as the previous but with 3 instead of two
-- If a number can only go in one row/col within a square, then it has to be within this squar in the given row/col
+- If a number can only go in one row/col within a square, then it has to be within this square in the given row/col
 - If a number can only go in a given square within a row/col, then it has to go in that row/col within the given square
 - Three corners of a rectangle only have two options each: AB, AC and BC, then C cannot go in the fourth corner (ordering of corners is important, and a more general interpretation of a rectangle is also implemented, see example)
 ```
@@ -99,7 +99,7 @@ Represents a sudoku problem, and is the central class of this project. Contains 
 The interactive solver is also handled by this class. Needs to be initialized with a given sudoku problem.
 
 #### `Knowledge` - `tracker.py`
-Contains information about a given field that is computed at some point during the solving process. This is an abstract class extended by classes containing actual information: `MustBe`, `CantBe`, `IsValue`. These classes contain information of that states that a number can/cannot go within a given field, or that it has already been filled in there.
+Contains information about a given field that is computed at some point during the solving process. This is an abstract class extended by classes containing actual information: `MustBe`, `CantBe`, `IsValue`. These classes contain information stating that a number can/cannot go within a given field, or that it has already been filled in there.
 
 #### `Deduction` - `tracker.py`
 Stores the result (`Knowledge`) of a given deduction along with all the proofs found for it in `Consequence` instances.
@@ -108,13 +108,13 @@ Stores the result (`Knowledge`) of a given deduction along with all the proofs f
 Contains a proof for a given deduction in the form of what `Deduction`/`Knowledge` instances are used to come to the given conclusion without storing the conclusion. Is mostly handled within `tracker.py`.
 
 #### `ProofStep` - `tracker.py`
-Chooses a field to fill from the available options in its `__init__`. Can run with *k-optimization* or without. *k-optimization* is done with an IP solver, so it can slow the program down immensely. *k-optimization* is not guaranteed to find the optimal k, since some deductions are removed (at random) to avoid circular reasoning.
+Chooses a field to fill from the available options in its `__init__`. Can run with *k-optimization* or without. *k-optimization* is done with an IP solver, so it can slow the program down immensely. *k-optimization* is not guaranteed to find the optimal `k`, since some deductions are removed (at random) to avoid circular reasoning.
 
 This class is also responsible for pretty printing of proofs.
 
 ### Other classes
-#### `Myprint` - `boardio.py`
-Wrapper for the print funtcion to make printing to files with it easier.
+#### `MyPrint` - `boardio.py`
+Wrapper for the print function to make printing to files with it easier.
 
 #### `ConsoleApp` - `consoleapp.py`
 For defining funcitons, their signatures, variables and patterns to enable parsing of input for a console app.
@@ -129,7 +129,7 @@ Used to "answer questions" of type *"where can this number go in this row?"* or 
 Deals with reading, parsing and printing of sudoku problems/board states.
 - fancy or detailed printing of boards
 - parsing of sudoku problems in text format
-- fetching sudoku problem from the internet
+- fetching sudoku puzzles from the internet
 - console based sudoku editor using `Getch.py`
 
 #### `Getch.py`
@@ -157,17 +157,17 @@ Object oriented solution for handling and storage of proofs through the `Knowled
 **k-optimization** is implemented here within `ProofStep`.
 
 #### `graph.py`
-Contains `print_graph`, which prints an ASCII representation of the parts of possible proofs of a `Deduction` showing dependency relations.
+Contains `print_graph`, which prints an ASCII representation of possible proofs in a step, showing dependency relations between `Knowledge`, `Consequence` and `Deduction` instances.
 
 #### `sudoku.py`
 The most important file in the project, this is the actual main file that should be executed.
 Implements the `Sudoku` class that:
 - contains the interactive solver
 - contains the higher level functions that are used in the solving process, and uses all our other tools
-- makes it possible to run from conole
+- makes it possible to run from console
 
-## Illustration of graph
-The `0`s mark inferences that lead to the field being filled. `O`s are `DEductions`, and left of them are `Consequences` that contain possible proofs. (these are denoted by the first letter of the deduction rule that spawned them) These are connected to the inferences that they use through brances going down. The `*`s at the bottom represent units of elementary information.
+## Example of a graph from `print_graph`
+The `0`s mark inferences that lead to the field being filled. `O`s are `Deduction`s, and down-left of them are `Consequence`s that contain possible proofs. (Rhese are denoted by the first letter of the deduction rule that spawned them.) These are connected to the inferences that they use through branches going down. The `*`s at the bottom represent units of elementary information.
 ```
                                                                                     ┌─┬0                              
                                                                                     a a                               
@@ -200,7 +200,7 @@ The `0`s mark inferences that lead to the field being filled. `O`s are `DEductio
  │         │   │ │ │   │ │ │ │ │ │ │ │ ││ │               │   │     │ │    │      │ │      │          │ │    ││ │ │   
  ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬┘ │               │   │     │ │    │      │ │      │          │ │    ││ │ │   
  ┌─────────────────────┬─┬───┬─┬─┬─┬─┬─┬──┘               │   │     │ │    │      │ │      │          │ │    ││ │ │   
- │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬┘   │     │ │    │      │ │      │          │ │    ││ │ │   
+ │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬┘   │     │ │    │      │ │      │          │ │    ││ │ │   t
  │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬────┘     │ │    │      │ │      │          │ │    ││ │ │   
  │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬──────────┘ │    │      │ │      │          │ │    ││ │ │   
  │         ┌─┬─┬─┬─────────┬───────────────────┬─┬─┬─┬─┬─┬────────────┘    │      │ │      │          │ │    ││ │ │   
